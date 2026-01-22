@@ -92,7 +92,8 @@ What agents should I use? What actions should they take?`,
 						if (action.action === 'read_text') {
 							result = await readAgent.read({
 								text: action.params.text,
-								speed: action.params.speed || 'normal'
+								speed: action.params.speed || 'normal',
+								format: action.params.format || 'plain'
 							});
 						}
 						break;
