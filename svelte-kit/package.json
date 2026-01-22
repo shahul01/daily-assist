@@ -22,7 +22,8 @@
 	"dependencies": {
 		"@google/generative-ai": "^0.24.1",
 		"ai": "^6.0.46",
-		"postgres": "^3.4.7"
+		"postgres": "^3.4.7",
+		"zod": "^4.3.5"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",
