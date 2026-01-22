@@ -1,0 +1,42 @@
+ ---
+alwaysApply: true
+---
+
+<!-- General code & thinking style -->
+Security First - Eg - Never commit secrets, sanitize all inputs, validate everything(zod preferred).
+Write Maintainable Code - Prioritize clarity, simplicity, and self-documentation over cleverness.
+Handle Errors Properly - Consider failure modes upfront, prevent edge case errors, implement proper error handling and logging. Production systems must fail gracefully.
+
+Prevent regression errors. Newly written code should not break existing functionality.
+Use best practices.
+
+When writing fn - create input and output types.
+Avoid unnecessary abstractions.
+
+Comment only when necessary, example why this code is needed.
+Don't create md docs unless specified.
+
+Think properly and well.
+Create Todos.
+Do web search if necessary like stuck in a bug or something.
+
+<!-- Design -->
+Design is how it works first and then its about looks.
+Design and working should be intuitive.
+User should not require notes and text to understand working of a feature, although those are allowed too.
+
+Looks should be modern, simple and elegant.
+Its theme should represent calming and helping people.
+It can have rounded borders, shadows (contrast or colored), transparent backgrounds.
+
+You may use components from /src/lib/components.
+User `dark:` css wherever necessary for dark mode.
+Use 60-30-10 color rule, hsl preferred over rgb.
+Mobile-first responsiveness.
+
+<!-- Files -->
+This codebase is a Sveltekit app for now  - check package.json and README.md for more details.
+Here is a guideline - svelte-kit\docs\basics\tech_stack_architecture.md
+
+<!-- General -->
+Do only necessary changes.
