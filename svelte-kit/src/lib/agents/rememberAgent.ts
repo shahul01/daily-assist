@@ -63,8 +63,13 @@ ${validatedInput.context ? `Context: ${validatedInput.context}` : ''}`;
 			systemPrompt
 		});
 
-		const reminderData = parseGeminiJson(result.text) as { task?: string; time?: string; priority?: string };
-		const task = reminderData.task != null ? String(reminderData.task).trim() : validatedInput.task?.trim();
+		const reminderData = parseGeminiJson(result.text) as {
+			task?: string;
+			time?: string;
+			priority?: string;
+		};
+		const task =
+			reminderData.task != null ? String(reminderData.task).trim() : validatedInput.task?.trim();
 		if (!task) throw new Error('Remember agent failed: could not extract a task description');
 		const dueDate = parseDueDate(reminderData.time);
 
@@ -121,7 +126,10 @@ ${validatedInput.context ? `Context: ${validatedInput.context}` : ''}`;
 	/**
 	 * Analyze user patterns using persisted reminders.
 	 */
-	async analyzePatterns(userId: string, conversationHistory: Array<{ role: string; parts?: Array<{ text: string }> }>): Promise<string> {
+	async analyzePatterns(
+		userId: string,
+		conversationHistory: Array<{ role: string; parts?: Array<{ text: string }> }>
+	): Promise<string> {
 		const userReminders = await this.listReminders(userId);
 		const systemPrompt = `You are a Remember-For-Me assistant analyzing user patterns.
 Identify: recurring tasks, times user struggles, forgotten tasks, medication adherence.`;

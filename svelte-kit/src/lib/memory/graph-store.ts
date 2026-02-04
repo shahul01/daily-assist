@@ -39,8 +39,14 @@ export async function getRelatedMemoryIds(
 ): Promise<string[]> {
 	const { maxDepth = 2, relationshipTypes } = options;
 	// Traverse from memoryId both directions (from->to and to->from)
-	let fromQ = supabaseServer.from('memory_relationships').select('to_memory_id').eq('from_memory_id', memoryId);
-	let toQ = supabaseServer.from('memory_relationships').select('from_memory_id').eq('to_memory_id', memoryId);
+	let fromQ = supabaseServer
+		.from('memory_relationships')
+		.select('to_memory_id')
+		.eq('from_memory_id', memoryId);
+	let toQ = supabaseServer
+		.from('memory_relationships')
+		.select('from_memory_id')
+		.eq('to_memory_id', memoryId);
 	if (relationshipTypes?.length) {
 		fromQ = fromQ.in('relationship_type', relationshipTypes);
 		toQ = toQ.in('relationship_type', relationshipTypes);
@@ -60,8 +66,14 @@ export async function getRelatedMemoryIds(
 
 	if (maxDepth >= 2) {
 		for (const id of Array.from(ids)) {
-			const { data: from2 } = await supabaseServer.from('memory_relationships').select('to_memory_id').eq('from_memory_id', id);
-			const { data: to2 } = await supabaseServer.from('memory_relationships').select('from_memory_id').eq('to_memory_id', id);
+			const { data: from2 } = await supabaseServer
+				.from('memory_relationships')
+				.select('to_memory_id')
+				.eq('from_memory_id', id);
+			const { data: to2 } = await supabaseServer
+				.from('memory_relationships')
+				.select('from_memory_id')
+				.eq('to_memory_id', id);
 			(from2 ?? []).forEach((r: { to_memory_id: string }) => ids.add(r.to_memory_id));
 			(to2 ?? []).forEach((r: { from_memory_id: string }) => ids.add(r.from_memory_id));
 		}

@@ -1,4 +1,5 @@
 # Cursor Implementation Guide: DailyAssist Tier 1
+
 ## Orchestrator + Read-To-Me Agent + Remember-For-Me Agent
 
 **Goal**: Build working MVP with 3 agents showcasing Gemini 3's thinking levels, thought signatures, and multi-agent coordination.
@@ -27,6 +28,7 @@ npm install -D @types/node
 ```
 
 **Why these packages:**
+
 - `@google/generative-ai`: Official Gemini 3 SDK
 - `zod`: Runtime type validation (security first)
 - `ai`: Vercel AI SDK for streaming responses (optional for Tier 1)
@@ -80,7 +82,7 @@ export interface GeminiResponse {
 
 /**
  * Call Gemini 3 with proper error handling
- * 
+ *
  * @param options - Configuration for Gemini call
  * @returns Response with text and thought signature
  */
@@ -111,7 +113,7 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 					{ role: 'user' as const, parts: [{ text: systemPrompt }] },
 					{ role: 'model' as const, parts: [{ text: 'Understood.' }] },
 					...conversationHistory
-			  ]
+				]
 			: conversationHistory;
 
 		const chat = geminiModel.startChat({ history });
@@ -131,9 +133,7 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 	} catch (error) {
 		// Production error handling
 		console.error('Gemini API error:', error);
-		throw new Error(
-			error instanceof Error ? error.message : 'Failed to call Gemini API'
-		);
+		throw new Error(error instanceof Error ? error.message : 'Failed to call Gemini API');
 	}
 }
 
@@ -174,6 +174,7 @@ export async function callGeminiWithImage(
 ```
 
 **Key Features:**
+
 - ✅ Thinking levels (LOW/MEDIUM/HIGH)
 - ✅ Thought signatures (context preservation)
 - ✅ Conversation history support
@@ -213,7 +214,7 @@ export interface ReadAgentOutput {
 
 /**
  * Read-To-Me Agent
- * 
+ *
  * Purpose: Convert text to speech-friendly format for vision/reading disabilities
  * Thinking Level: LOW (simple task, speed matters)
  */
@@ -254,7 +255,9 @@ ${validatedInput.speed === 'fast' ? '- Keep it concise\n- Skip redundant details
 				thoughtSignature: result.thoughtSignature
 			};
 		} catch (error) {
-			throw new Error(`Read agent failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			throw new Error(
+				`Read agent failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		}
 	}
 
@@ -280,6 +283,7 @@ export const readAgent = new ReadAgent();
 ```
 
 **Features:**
+
 - ✅ Zod validation (security)
 - ✅ LOW thinking level (speed for accessibility)
 - ✅ Text-to-speech formatting
@@ -322,7 +326,7 @@ export interface Reminder {
 
 /**
  * Remember-For-Me Agent
- * 
+ *
  * Purpose: Help users with memory disabilities track tasks, appointments, medications
  * Thinking Level: MEDIUM (balance speed and reasoning)
  */
@@ -380,7 +384,9 @@ ${validatedInput.context ? `Context: ${validatedInput.context}` : ''}`;
 
 			return reminder;
 		} catch (error) {
-			throw new Error(`Remember agent failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			throw new Error(
+				`Remember agent failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		}
 	}
 
@@ -422,7 +428,9 @@ What patterns do you notice? What suggestions can help them remember better?`;
 
 			return result.text;
 		} catch (error) {
-			throw new Error(`Pattern analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			throw new Error(
+				`Pattern analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		}
 	}
 }
@@ -432,6 +440,7 @@ export const rememberAgent = new RememberAgent();
 ```
 
 **Features:**
+
 - ✅ Natural language → structured reminder
 - ✅ MEDIUM thinking for extraction
 - ✅ HIGH thinking for pattern analysis
@@ -477,7 +486,7 @@ export interface OrchestratorOutput {
 
 /**
  * Multi-Agent Orchestrator
- * 
+ *
  * Purpose: Coordinate multiple agents to accomplish complex tasks
  * Key Feature: Uses thought signatures to maintain context across agents
  */
@@ -618,7 +627,9 @@ Provide a natural, helpful response to the user explaining what was done.`,
 			};
 		} catch (error) {
 			console.error('Orchestrator error:', error);
-			throw new Error(`Orchestration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			throw new Error(
+				`Orchestration failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		}
 	}
 
@@ -635,6 +646,7 @@ export const orchestrator = new Orchestrator();
 ```
 
 **Features:**
+
 - ✅ Multi-agent coordination
 - ✅ Thought signatures across agents
 - ✅ Strategic thinking levels (MEDIUM for planning, LOW for synthesis)
@@ -657,13 +669,10 @@ import { orchestrator } from '$lib/agents/orchestrator';
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
-		
+
 		// Validate required fields
 		if (!body.userInput || !body.userId) {
-			return json(
-				{ error: 'Missing required fields: userInput, userId' },
-				{ status: 400 }
-			);
+			return json({ error: 'Missing required fields: userInput, userId' }, { status: 400 });
 		}
 
 		const result = await orchestrator.process({
@@ -711,10 +720,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Image reading
 		if (body.imageBase64) {
-			const result = await readAgent.readImage(
-				body.imageBase64,
-				body.mimeType || 'image/jpeg'
-			);
+			const result = await readAgent.readImage(body.imageBase64, body.mimeType || 'image/jpeg');
 			return json({ description: result });
 		}
 
@@ -801,22 +807,22 @@ export const POST: RequestHandler = async ({ request }) => {
 ```svelte
 <script lang="ts">
 	import { onMount } from 'svelte';
-	
+
 	let userInput = $state('');
 	let response = $state('');
 	let loading = $state(false);
 	let agentsUsed = $state<string[]>([]);
-	
+
 	// Generate simple user ID (in production, use proper auth)
 	const userId = crypto.randomUUID();
-	
+
 	async function handleSubmit() {
 		if (!userInput.trim()) return;
-		
+
 		loading = true;
 		response = '';
 		agentsUsed = [];
-		
+
 		try {
 			const res = await fetch('/api/orchestrate', {
 				method: 'POST',
@@ -826,11 +832,11 @@ export const POST: RequestHandler = async ({ request }) => {
 					userId
 				})
 			});
-			
+
 			if (!res.ok) {
 				throw new Error(`API error: ${res.statusText}`);
 			}
-			
+
 			const data = await res.json();
 			response = data.response;
 			agentsUsed = data.agentsUsed || [];
@@ -844,12 +850,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 <div class="agent-panel">
 	<h2>DailyAssist - Your AI Companion</h2>
-	
+
 	<form on:submit|preventDefault={handleSubmit}>
-		<label for="user-input">
-			What can I help you with today?
-		</label>
-		
+		<label for="user-input"> What can I help you with today? </label>
+
 		<textarea
 			id="user-input"
 			bind:value={userInput}
@@ -859,19 +863,19 @@ export const POST: RequestHandler = async ({ request }) => {
 - What are my reminders?"
 			rows="4"
 		></textarea>
-		
+
 		<button type="submit" disabled={loading}>
 			{loading ? 'Processing...' : 'Ask DailyAssist'}
 		</button>
 	</form>
-	
+
 	{#if agentsUsed.length > 0}
 		<div class="agents-used">
 			<strong>Agents used:</strong>
 			{agentsUsed.join(', ')}
 		</div>
 	{/if}
-	
+
 	{#if response}
 		<div class="response">
 			<strong>DailyAssist:</strong>
@@ -889,32 +893,32 @@ export const POST: RequestHandler = async ({ request }) => {
 		border-radius: 12px;
 		box-shadow: 0 2px 8px hsla(210 20% 20% / 0.1);
 	}
-	
+
 	:global(body.dark) .agent-panel {
 		background: hsl(210 20% 15%);
 		box-shadow: 0 2px 8px hsla(0 0% 0% / 0.3);
 	}
-	
+
 	h2 {
 		color: hsl(210 60% 40%);
 		margin-bottom: 1.5rem;
 	}
-	
+
 	:global(body.dark) h2 {
 		color: hsl(210 60% 60%);
 	}
-	
+
 	label {
 		display: block;
 		margin-bottom: 0.5rem;
 		font-weight: 500;
 		color: hsl(210 10% 30%);
 	}
-	
+
 	:global(body.dark) label {
 		color: hsl(210 10% 80%);
 	}
-	
+
 	textarea {
 		width: 100%;
 		padding: 0.75rem;
@@ -924,13 +928,13 @@ export const POST: RequestHandler = async ({ request }) => {
 		font-size: 1rem;
 		resize: vertical;
 	}
-	
+
 	:global(body.dark) textarea {
 		background: hsl(210 20% 20%);
 		border-color: hsl(210 20% 30%);
 		color: hsl(0 0% 95%);
 	}
-	
+
 	button {
 		margin-top: 1rem;
 		padding: 0.75rem 1.5rem;
@@ -943,16 +947,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		cursor: pointer;
 		transition: background 0.2s;
 	}
-	
+
 	button:hover:not(:disabled) {
 		background: hsl(210 60% 45%);
 	}
-	
+
 	button:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
-	
+
 	.agents-used {
 		margin-top: 1rem;
 		padding: 0.75rem;
@@ -961,12 +965,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		font-size: 0.9rem;
 		color: hsl(210 60% 40%);
 	}
-	
+
 	:global(body.dark) .agents-used {
 		background: hsl(210 60% 20%);
 		color: hsl(210 60% 70%);
 	}
-	
+
 	.response {
 		margin-top: 1.5rem;
 		padding: 1rem;
@@ -974,19 +978,19 @@ export const POST: RequestHandler = async ({ request }) => {
 		border-radius: 8px;
 		border-left: 4px solid hsl(210 60% 50%);
 	}
-	
+
 	:global(body.dark) .response {
 		background: hsl(210 20% 18%);
 	}
-	
+
 	.response strong {
 		color: hsl(210 60% 40%);
 	}
-	
+
 	:global(body.dark) .response strong {
 		color: hsl(210 60% 60%);
 	}
-	
+
 	.response p {
 		margin-top: 0.5rem;
 		line-height: 1.6;
@@ -1013,20 +1017,20 @@ export const POST: RequestHandler = async ({ request }) => {
 		<h1>DailyAssist</h1>
 		<p>Your AI companion helping with reading, writing, finding, remembering, and communicating</p>
 	</div>
-	
+
 	<AgentPanel />
-	
+
 	<div class="features">
 		<div class="feature">
 			<h3>📖 Read-To-Me</h3>
 			<p>Converts text to speech-friendly format for vision disabilities</p>
 		</div>
-		
+
 		<div class="feature">
 			<h3>🧠 Remember-For-Me</h3>
 			<p>Creates reminders and tracks tasks for memory disabilities</p>
 		</div>
-		
+
 		<div class="feature">
 			<h3>🎯 Smart Orchestration</h3>
 			<p>Multiple agents work together to help you accomplish complex tasks</p>
@@ -1040,64 +1044,64 @@ export const POST: RequestHandler = async ({ request }) => {
 		max-width: 1200px;
 		margin: 0 auto;
 	}
-	
+
 	.hero {
 		text-align: center;
 		margin-bottom: 3rem;
 	}
-	
+
 	h1 {
 		font-size: 3rem;
 		color: hsl(210 60% 40%);
 		margin-bottom: 0.5rem;
 	}
-	
+
 	:global(body.dark) h1 {
 		color: hsl(210 60% 60%);
 	}
-	
+
 	.hero p {
 		font-size: 1.25rem;
 		color: hsl(210 10% 40%);
 	}
-	
+
 	:global(body.dark) .hero p {
 		color: hsl(210 10% 70%);
 	}
-	
+
 	.features {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 		gap: 2rem;
 		margin-top: 3rem;
 	}
-	
+
 	.feature {
 		padding: 1.5rem;
 		background: hsl(210 20% 98%);
 		border-radius: 12px;
 		text-align: center;
 	}
-	
+
 	:global(body.dark) .feature {
 		background: hsl(210 20% 15%);
 	}
-	
+
 	.feature h3 {
 		font-size: 1.5rem;
 		margin-bottom: 0.5rem;
 		color: hsl(210 60% 40%);
 	}
-	
+
 	:global(body.dark) .feature h3 {
 		color: hsl(210 60% 60%);
 	}
-	
+
 	.feature p {
 		color: hsl(210 10% 40%);
 		line-height: 1.6;
 	}
-	
+
 	:global(body.dark) .feature p {
 		color: hsl(210 10% 70%);
 	}
@@ -1111,18 +1115,21 @@ export const POST: RequestHandler = async ({ request }) => {
 ### Manual Testing
 
 1. **Test Read-To-Me Agent**
+
 ```
 Input: "Read this to me: The quick brown fox jumps over the lazy dog."
 Expected: Speech-friendly formatted text
 ```
 
 2. **Test Remember-For-Me Agent**
+
 ```
 Input: "Remind me to take medication at 8 PM tonight"
 Expected: Creates structured reminder with ISO timestamp
 ```
 
 3. **Test Orchestrator**
+
 ```
 Input: "Read this text and remind me about it: Important meeting tomorrow at 2 PM"
 Expected: Both agents coordinate - reads text AND creates reminder
@@ -1186,15 +1193,19 @@ open http://localhost:5173
 ## Common Issues & Solutions
 
 ### Issue: "VITE_GEMINI_API_KEY is not set"
+
 **Solution**: Check `.env` file exists and has correct variable name
 
 ### Issue: "thinking_level is not a valid property"
+
 **Solution**: This is expected TypeScript error. Use `// @ts-expect-error` comment (already in code)
 
 ### Issue: JSON parsing error in agents
+
 **Solution**: Add better error handling in agent code. Gemini sometimes returns markdown-wrapped JSON.
 
 ### Issue: Agents not coordinating
+
 **Solution**: Check thought signatures are being passed correctly in orchestrator
 
 ---

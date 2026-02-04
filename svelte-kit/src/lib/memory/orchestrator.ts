@@ -106,7 +106,10 @@ export async function retrieve(
 	if (includeRelated && memories.length > 0) {
 		const relatedIds = new Set<string>();
 		for (const m of memories) {
-			const ids = await graphStore.getRelatedMemoryIds(m.id, { maxDepth: 1, relationshipTypes: ['REQUIRES', 'SUPPORTS', 'RELATES_TO'] });
+			const ids = await graphStore.getRelatedMemoryIds(m.id, {
+				maxDepth: 1,
+				relationshipTypes: ['REQUIRES', 'SUPPORTS', 'RELATES_TO']
+			});
 			ids.forEach((id) => relatedIds.add(id));
 		}
 		for (const m of memories) {
@@ -117,7 +120,9 @@ export async function retrieve(
 		for (const r of related) {
 			if (!dedup.has(r.id)) dedup.set(r.id, { ...r, similarity: 0 });
 		}
-		memories = Array.from(dedup.values()).sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0)).slice(0, limit);
+		memories = Array.from(dedup.values())
+			.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0))
+			.slice(0, limit);
 	}
 
 	await vectorStore.trackAccess(memories.map((m) => m.id));
@@ -127,13 +132,18 @@ export async function retrieve(
 /**
  * Get high-level summary for context injection (preferences, goals, todos, rules).
  */
-export async function getMemorySummary(userId: string, recentQuery?: string): Promise<MemorySummary> {
+export async function getMemorySummary(
+	userId: string,
+	recentQuery?: string
+): Promise<MemorySummary> {
 	const [prefs, goalsRes, todosRes, rules, recentMemories] = await Promise.all([
 		kvStore.kvGetAll(userId, 'pref:'),
 		supabaseServer.from('goals').select('*').eq('user_id', userId).eq('status', 'active'),
 		supabaseServer.from('todos').select('*').eq('user_id', userId).eq('completed', false),
 		rulesEngine.getActiveRules(userId),
-		recentQuery ? retrieve(userId, recentQuery, { limit: 3, includeRelated: false }) : Promise.resolve([])
+		recentQuery
+			? retrieve(userId, recentQuery, { limit: 3, includeRelated: false })
+			: Promise.resolve([])
 	]);
 
 	const { data: goals } = goalsRes;

@@ -8,7 +8,7 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
 
 	server: {
-		port: 5221,
+		port: 5221
 	},
 
 	test: {
