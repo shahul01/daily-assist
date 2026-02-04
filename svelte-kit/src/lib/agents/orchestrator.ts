@@ -35,6 +35,22 @@ export type OrchestratorStreamEvent =
 	| { type: 'done'; thoughtSignature?: string }
 	| { type: 'error'; message: string };
 
+/** Planner action params (Gemini may omit or vary) */
+interface PlannerActionParams {
+	text?: string;
+	speed?: 'slow' | 'normal' | 'fast';
+	format?: 'plain' | 'structured';
+	task?: string;
+	time?: string;
+}
+
+/** Planner JSON shape from Gemini */
+interface PlannerPlan {
+	agents: string[];
+	reasoning?: string;
+	actions: Array<{ agent: string; action: string; params?: PlannerActionParams }>;
+}
+
 /**
  * Normalize agent names coming from the planner so we can
  * robustly match them against implemented agents.
@@ -102,7 +118,7 @@ What agents should I use? What actions should they take?`,
 			});
 
 			// Parse plan (Gemini may sometimes respond with fenced JSON)
-			const plan = parseGeminiJson(planningResult.text);
+			const plan = parseGeminiJson(planningResult.text) as PlannerPlan;
 
 			// Step 2: Execute agent actions
 			const actions: OrchestratorOutput['actions'] = [];
@@ -110,14 +126,15 @@ What agents should I use? What actions should they take?`,
 			for (const action of plan.actions) {
 				let result;
 				const agentName = normalizeAgentName(action.agent);
+				const params = action.params;
 
 				switch (agentName) {
 					case 'Read-To-Me':
-						if (action.action === 'read_text') {
+						if (action.action === 'read_text' && params?.text?.trim()) {
 							result = await readAgent.read({
-								text: action.params.text,
-								speed: action.params.speed || 'normal',
-								format: action.params.format || 'plain'
+								text: params.text.trim(),
+								speed: params.speed ?? 'normal',
+								format: params.format ?? 'plain'
 							});
 						}
 						break;
@@ -126,8 +143,8 @@ What agents should I use? What actions should they take?`,
 						if (action.action === 'create_reminder') {
 							result = await rememberAgent.createReminder({
 								action: 'create_reminder',
-								task: action.params.task,
-								time: action.params.time,
+								task: params?.task,
+								time: params?.time,
 								userId: validatedInput.userId
 							});
 						} else if (action.action === 'list_reminders') {
@@ -239,20 +256,21 @@ What agents should I use? What actions should they take?`,
 				conversationHistory: history
 			});
 
-			const plan = parseGeminiJson(planningResult.text);
+			const plan = parseGeminiJson(planningResult.text) as PlannerPlan;
 			const actions: OrchestratorOutput['actions'] = [];
 
 			for (const action of plan.actions) {
 				let result;
 				const agentName = normalizeAgentName(action.agent);
+				const params = action.params;
 
 				switch (agentName) {
 					case 'Read-To-Me':
-						if (action.action === 'read_text') {
+						if (action.action === 'read_text' && params?.text?.trim()) {
 							result = await readAgent.read({
-								text: action.params.text,
-								speed: action.params.speed || 'normal',
-								format: action.params.format || 'plain'
+								text: params.text.trim(),
+								speed: params.speed ?? 'normal',
+								format: params.format ?? 'plain'
 							});
 						}
 						break;
@@ -261,8 +279,8 @@ What agents should I use? What actions should they take?`,
 						if (action.action === 'create_reminder') {
 							result = await rememberAgent.createReminder({
 								action: 'create_reminder',
-								task: action.params.task,
-								time: action.params.time,
+								task: params?.task,
+								time: params?.time,
 								userId: validatedInput.userId
 							});
 						} else if (action.action === 'list_reminders') {
