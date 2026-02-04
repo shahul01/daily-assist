@@ -1,4 +1,6 @@
 <script lang="ts">
+	import MarkdownRenderer from '../MarkdownRenderer.svelte';
+
 	let userInput = $state('');
 	let response = $state('');
 	let loading = $state(false);
@@ -218,12 +220,7 @@
 	{#if response || isStreaming}
 		<div class="response">
 			<strong>DailyAssist:</strong>
-			<p>
-				{response}
-				{#if isStreaming}
-					<span class="streaming-indicator">▌</span>
-				{/if}
-			</p>
+			<MarkdownRenderer content={response} isStreaming={isStreaming} />
 		</div>
 	{/if}
 
@@ -340,16 +337,12 @@
 
 	.response strong {
 		color: hsl(210 60% 40%);
+		display: block;
+		margin-bottom: 0.75rem;
 	}
 
 	:global(body.dark) .response strong {
 		color: hsl(210 60% 60%);
-	}
-
-	.response p {
-		margin-top: 0.5rem;
-		line-height: 1.6;
-		white-space: pre-wrap;
 	}
 
 	.tts-controls {
@@ -382,23 +375,4 @@
 		box-shadow: 0 1px 4px hsla(150 60% 20% / 0.25);
 	}
 
-	.streaming-indicator {
-		display: inline-block;
-		color: hsl(210 60% 50%);
-		animation: pulse 0.8s ease-in-out infinite;
-		margin-left: 0.25rem;
-	}
-
-	:global(body.dark) .streaming-indicator {
-		color: hsl(210 60% 60%);
-	}
-
-	@keyframes pulse {
-		0%, 100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.4;
-		}
-	}
 </style>

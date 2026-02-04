@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { callGemini } from '$lib/utils/gemini';
+import { callGemini, parseGeminiJson } from '$lib/utils/gemini';
 
 /**
  * Input validation
@@ -68,8 +68,8 @@ ${validatedInput.context ? `Context: ${validatedInput.context}` : ''}`;
 				systemPrompt
 			});
 
-			// Parse JSON response
-			const reminderData = JSON.parse(result.text);
+			// Parse JSON response (handles ```json ... ``` markdown fences)
+			const reminderData = parseGeminiJson(result.text) as { task: string; time: string; priority?: string };
 
 			const reminder: Reminder = {
 				id: crypto.randomUUID(),

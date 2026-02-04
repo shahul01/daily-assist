@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { callGemini, callGeminiStream } from '$lib/utils/gemini';
+import { callGemini, callGeminiStream, parseGeminiJson } from '$lib/utils/gemini';
 import { readAgent } from './readAgent';
 import { rememberAgent } from './rememberAgent';
 
@@ -34,40 +34,6 @@ export type OrchestratorStreamEvent =
 	| { type: 'chunk'; text: string }
 	| { type: 'done'; thoughtSignature?: string }
 	| { type: 'error'; message: string };
-
-/**
- * Safely parse JSON from Gemini responses that may include Markdown fences.
- */
-function parseGeminiJson(text: string): any {
-	// If the model wrapped JSON in ```json ... ``` fences, extract inner content
-	const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-	const raw = fenceMatch ? fenceMatch[1] : text;
-
-	// Trim and attempt to locate the outermost JSON object/array
-	const startObject = raw.indexOf('{');
-	const startArray = raw.indexOf('[');
-	const start =
-		startObject === -1
-			? startArray
-			: startArray === -1
-			? startObject
-			: Math.min(startObject, startArray);
-	const endObject = raw.lastIndexOf('}');
-	const endArray = raw.lastIndexOf(']');
-	const end =
-		endObject === -1
-			? endArray
-			: endArray === -1
-			? endObject
-			: Math.max(endObject, endArray);
-
-	if (start === -1 || end === -1 || end <= start) {
-		throw new Error('Unable to locate JSON content in Gemini response');
-	}
-
-	const candidate = raw.slice(start, end + 1).trim();
-	return JSON.parse(candidate);
-}
 
 /**
  * Normalize agent names coming from the planner so we can

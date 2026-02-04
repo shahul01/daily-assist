@@ -32,6 +32,41 @@ export type GeminiStreamChunk =
 	| { done: true; thoughtSignature?: string };
 
 /**
+ * Parse JSON from Gemini text that may be wrapped in markdown code fences (e.g. ```json ... ```).
+ *
+ * @param text - Raw model output
+ * @returns Parsed object or array
+ */
+export function parseGeminiJson(text: string): unknown {
+	const trimmed = text.trim();
+	const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+	const raw = fenceMatch ? fenceMatch[1].trim() : trimmed;
+
+	const startObject = raw.indexOf('{');
+	const startArray = raw.indexOf('[');
+	const start =
+		startObject === -1
+			? startArray
+			: startArray === -1
+				? startObject
+				: Math.min(startObject, startArray);
+	const endObject = raw.lastIndexOf('}');
+	const endArray = raw.lastIndexOf(']');
+	const end =
+		endObject === -1
+			? endArray
+			: endArray === -1
+				? endObject
+				: Math.max(endObject, endArray);
+
+	if (start === -1 || end === -1 || end <= start) {
+		throw new Error('Unable to locate JSON content in response');
+	}
+
+	return JSON.parse(raw.slice(start, end + 1));
+}
+
+/**
  * Call Gemini 3 with proper error handling
  *
  * @param options - Configuration for Gemini call
