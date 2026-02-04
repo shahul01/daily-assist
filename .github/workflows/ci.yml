@@ -177,4 +177,6 @@ jobs:
       - name: Build project
         env:
           VITE_GEMINI_API_KEY: "ci-placeholder"
+          SUPABASE_URL: "https://ci-placeholder.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder"
         run: pnpm run build

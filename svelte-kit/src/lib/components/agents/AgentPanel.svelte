@@ -1,12 +1,22 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import MarkdownRenderer from '../MarkdownRenderer.svelte';
 	import { markdownToPlainTextForTts } from '$lib/utils/markdown';
+	import { getOrCreateUserId } from '$lib/supabase';
 
 	let userInput = $state('');
 	let response = $state('');
 	let loading = $state(false);
 	let agentsUsed = $state<string[]>([]);
 	let actions = $state<any[]>([]);
+	/** Valid Supabase auth user id (from anonymous sign-in). Required for reminders/memory. */
+	let userId = $state<string | null>(null);
+
+	onMount(() => {
+		getOrCreateUserId().then((id) => {
+			userId = id;
+		});
+	});
 
 	// Text that will actually be spoken by the browser TTS
 	let playbackText = $state('');
@@ -139,12 +149,17 @@
 		isPaused = false;
 	}
 
-	// Generate simple user ID (in production, use proper auth)
-	const userId = crypto.randomUUID();
-
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		if (!userInput.trim()) return;
+
+		const uid = userId ?? (await getOrCreateUserId());
+		if (uid && !userId) userId = uid;
+		if (!uid) {
+			response =
+				'Reminders and memory require Supabase. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env and enable Anonymous sign-in in Supabase Dashboard → Authentication → Providers.';
+			return;
+		}
 
 		loading = true;
 		isStreaming = false;
@@ -162,7 +177,7 @@
 				},
 				body: JSON.stringify({
 					userInput: userInput.trim(),
-					userId
+					userId: uid
 				})
 			});
 

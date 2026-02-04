@@ -18,10 +18,12 @@
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"supabase:types": "npx supabase gen types typescript --project-id \"$env:SUPABASE_PROJECT_REF\" --schema public > src/lib/types/database.types.ts 2>nul || echo Run after linking: npx supabase link then set SUPABASE_PROJECT_REF"
 	},
 	"dependencies": {
 		"@google/generative-ai": "^0.24.1",
+		"@supabase/supabase-js": "^2.94.1",
 		"ai": "^6.0.46",
 		"dompurify": "^3.3.1",
 		"marked": "^17.0.1",
