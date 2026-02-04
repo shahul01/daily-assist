@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { callGemini, callGeminiStream, parseGeminiJson } from '$lib/utils/gemini';
 import { readAgent } from './readAgent';
 import { rememberAgent } from './rememberAgent';
+import { getMemorySummary, processConversation } from '$lib/memory';
 
 /**
  * Orchestrator input
@@ -81,10 +82,26 @@ export class Orchestrator {
 	async process(input: OrchestratorInput): Promise<OrchestratorOutput> {
 		const validatedInput = OrchestratorInputSchema.parse(input);
 
-		// Load conversation history for this user
 		const history = this.conversationHistory.get(validatedInput.userId) || [];
+		let memoryContext = '';
+		try {
+			const summary = await getMemorySummary(validatedInput.userId, validatedInput.userInput);
+			const recent = summary.recentMemories.map((m) => `- ${m.text_content}`).join('\n');
+			memoryContext =
+				[
+					summary.activeGoals.length ? `Active goals: ${summary.activeGoals.map((g) => g.title).join('; ')}` : '',
+					summary.pendingTodos.length ? `Pending todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}` : '',
+					Object.keys(summary.preferences).length ? `Known preferences: ${JSON.stringify(summary.preferences)}` : '',
+					recent ? `Relevant past context:\n${recent}` : ''
+				]
+					.filter(Boolean)
+					.join('\n');
+		} catch (e) {
+			console.warn('[orchestrator] memory summary failed', e);
+		}
 
-		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents:
+		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents.
+${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
 2. Write-For-Me Agent: Write emails, documents (NOT IMPLEMENTED YET)
 3. Find-It Agent: Search, navigate, locate files (NOT IMPLEMENTED YET)
@@ -92,7 +109,6 @@ export class Orchestrator {
 5. Say-It-For-Me Agent: Text-to-speech for communication (NOT IMPLEMENTED YET)
 
 Your job: Decide which agent(s) to use based on user intent.
-
 Available agents RIGHT NOW: Read-To-Me, Remember-For-Me
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
@@ -105,7 +121,6 @@ Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no co
 }`;
 
 		try {
-			// Step 1: Decide which agents to use
 			const planningResult = await callGemini({
 				// TODO: set thinkingLevel as 'medium' later
 				prompt: `User request: "${validatedInput.userInput}"
@@ -205,6 +220,18 @@ Provide a natural, helpful response to the user explaining what was done.`,
 			);
 			this.conversationHistory.set(validatedInput.userId, history);
 
+			try {
+				await processConversation({
+					userId: validatedInput.userId,
+					messages: [
+						{ role: 'user', content: validatedInput.userInput },
+						{ role: 'model', content: synthesisResult.text }
+					]
+				});
+			} catch (e) {
+				console.warn('[orchestrator] processConversation failed', e);
+			}
+
 			return {
 				response: synthesisResult.text,
 				agentsUsed: plan.agents,
@@ -224,8 +251,22 @@ Provide a natural, helpful response to the user explaining what was done.`,
 	async *processStream(input: OrchestratorInput): AsyncGenerator<OrchestratorStreamEvent, void, undefined> {
 		const validatedInput = OrchestratorInputSchema.parse(input);
 		const history = this.conversationHistory.get(validatedInput.userId) || [];
+		let memoryContext = '';
+		try {
+			const summary = await getMemorySummary(validatedInput.userId, validatedInput.userInput);
+			memoryContext = [
+				summary.activeGoals.length ? `Goals: ${summary.activeGoals.map((g) => g.title).join('; ')}` : '',
+				summary.pendingTodos.length ? `Todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}` : '',
+				summary.recentMemories.length ? `Relevant: ${summary.recentMemories.map((m) => m.text_content).join(' | ')}` : ''
+			]
+				.filter(Boolean)
+				.join('\n');
+		} catch {
+			// ignore
+		}
 
-		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents:
+		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents.
+${memoryContext ? `\nUser context:\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
 2. Write-For-Me Agent: Write emails, documents (NOT IMPLEMENTED YET)
 3. Find-It Agent: Search, navigate, locate files (NOT IMPLEMENTED YET)
@@ -350,6 +391,18 @@ Provide a natural, helpful response to the user explaining what was done.`;
 				}
 			);
 			this.conversationHistory.set(validatedInput.userId, history);
+
+			try {
+				await processConversation({
+					userId: validatedInput.userId,
+					messages: [
+						{ role: 'user', content: validatedInput.userInput },
+						{ role: 'model', content: fullText }
+					]
+				});
+			} catch {
+				// ignore
+			}
 
 			yield { type: 'done', thoughtSignature: finalThoughtSignature };
 
