@@ -29,6 +29,55 @@ export interface OrchestratorOutput {
 }
 
 /**
+ * Safely parse JSON from Gemini responses that may include Markdown fences.
+ */
+function parseGeminiJson(text: string): any {
+	// If the model wrapped JSON in ```json ... ``` fences, extract inner content
+	const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+	const raw = fenceMatch ? fenceMatch[1] : text;
+
+	// Trim and attempt to locate the outermost JSON object/array
+	const startObject = raw.indexOf('{');
+	const startArray = raw.indexOf('[');
+	const start =
+		startObject === -1
+			? startArray
+			: startArray === -1
+			? startObject
+			: Math.min(startObject, startArray);
+	const endObject = raw.lastIndexOf('}');
+	const endArray = raw.lastIndexOf(']');
+	const end =
+		endObject === -1
+			? endArray
+			: endArray === -1
+			? endObject
+			: Math.max(endObject, endArray);
+
+	if (start === -1 || end === -1 || end <= start) {
+		throw new Error('Unable to locate JSON content in Gemini response');
+	}
+
+	const candidate = raw.slice(start, end + 1).trim();
+	return JSON.parse(candidate);
+}
+
+/**
+ * Normalize agent names coming from the planner so we can
+ * robustly match them against implemented agents.
+ */
+function normalizeAgentName(agent: string): string {
+	const trimmed = agent.trim();
+
+	// Allow names like "Read-To-Me Agent" to map to "Read-To-Me"
+	if (trimmed.endsWith(' Agent')) {
+		return trimmed.slice(0, -' Agent'.length);
+	}
+
+	return trimmed;
+}
+
+/**
  * Multi-Agent Orchestrator
  *
  * Purpose: Coordinate multiple agents to accomplish complex tasks
@@ -57,7 +106,7 @@ Your job: Decide which agent(s) to use based on user intent.
 
 Available agents RIGHT NOW: Read-To-Me, Remember-For-Me
 
-Output JSON:
+Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
 {
   "agents": ["agent_name"],
   "reasoning": "why these agents",
@@ -69,25 +118,27 @@ Output JSON:
 		try {
 			// Step 1: Decide which agents to use
 			const planningResult = await callGemini({
+				// TODO: set thinkingLevel as 'medium' later
 				prompt: `User request: "${validatedInput.userInput}"
 
 What agents should I use? What actions should they take?`,
-				model: 'gemini-3-pro',
-				thinkingLevel: 'medium', // Medium thinking for orchestration
+				model: 'gemini-3-pro-preview',
+				thinkingLevel: 'low', // Medium thinking for orchestration
 				systemPrompt,
 				conversationHistory: history
 			});
 
-			// Parse plan
-			const plan = JSON.parse(planningResult.text);
+			// Parse plan (Gemini may sometimes respond with fenced JSON)
+			const plan = parseGeminiJson(planningResult.text);
 
 			// Step 2: Execute agent actions
 			const actions: OrchestratorOutput['actions'] = [];
 
 			for (const action of plan.actions) {
 				let result;
+				const agentName = normalizeAgentName(action.agent);
 
-				switch (action.agent) {
+				switch (agentName) {
 					case 'Read-To-Me':
 						if (action.action === 'read_text') {
 							result = await readAgent.read({
@@ -116,7 +167,7 @@ What agents should I use? What actions should they take?`,
 				}
 
 				actions.push({
-					agent: action.agent,
+					agent: agentName,
 					action: action.action,
 					result
 				});
@@ -130,7 +181,7 @@ I executed these actions:
 ${JSON.stringify(actions, null, 2)}
 
 Provide a natural, helpful response to the user explaining what was done.`,
-				model: 'gemini-3-flash',
+				model: 'gemini-3-flash-preview',
 				thinkingLevel: 'low', // Fast response synthesis
 				conversationHistory: [
 					...history,

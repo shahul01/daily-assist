@@ -62,8 +62,9 @@ ${validatedInput.context ? `Context: ${validatedInput.context}` : ''}`;
 		try {
 			const result = await callGemini({
 				prompt,
-				model: 'gemini-3-pro', // Use Pro for better reasoning
-				thinkingLevel: 'medium', // Balance speed and quality
+				model: 'gemini-3-pro-preview', // Use Pro for better reasoning
+				// TODO: set thinkingLevel as 'medium' later
+				thinkingLevel: 'low', // Balance speed and quality
 				systemPrompt
 			});
 
@@ -119,7 +120,7 @@ What patterns do you notice? What suggestions can help them remember better?`;
 		try {
 			const result = await callGemini({
 				prompt,
-				model: 'gemini-3-pro',
+				model: 'gemini-3-pro-preview',
 				thinkingLevel: 'high', // Deep analysis requires high thinking
 				systemPrompt,
 				conversationHistory // Maintain context across analysis

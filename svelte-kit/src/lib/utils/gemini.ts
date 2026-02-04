@@ -11,8 +11,8 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
  */
 export interface GeminiCallOptions {
 	prompt: string;
-	model?: 'gemini-3-flash' | 'gemini-3-pro';
-	thinkingLevel?: 'low' | 'medium' | 'high';
+	model?: 'gemini-3-flash-preview' | 'gemini-3-pro-preview' | 'gemini-2.5-flash' | 'gemini-2.5-pro';
+	thinkingLevel?: 'low' | 'medium' | 'high' | 'minimal';
 	systemPrompt?: string;
 	conversationHistory?: Array<{
 		role: 'user' | 'model';
@@ -35,25 +35,37 @@ export interface GeminiResponse {
 export async function callGemini(options: GeminiCallOptions): Promise<GeminiResponse> {
 	const {
 		prompt,
-		model = 'gemini-3-flash',
+		model = 'gemini-3-pro-preview',
 		thinkingLevel = 'low',
 		systemPrompt,
 		conversationHistory = []
 	} = options;
 
 	try {
+		// Build generation config with thinking config
+		// According to Gemini API REST docs: generationConfig.thinkingConfig.thinkingLevel
+		// Note: Old @google/generative-ai SDK (v0.24.1) may serialize nested objects correctly
+		// If this fails, consider upgrading to @google/genai SDK or using REST API directly
+		const generationConfig: any = {
+			temperature: 1.0
+		};
+
+		// Add thinking config for Gemini 3 models (nested structure per REST API)
+		if (model.includes('gemini-3') && thinkingLevel) {
+			generationConfig.thinkingConfig = {
+				thinkingLevel: thinkingLevel
+			};
+		}
+		// Note: Gemini 2.5 uses thinkingBudget instead of thinkingLevel
+		// For 2.5 models, we'd need to set thinkingBudget (not implemented here)
+
 		const geminiModel = genAI.getGenerativeModel({
 			model,
-			generationConfig: {
-				// CRITICAL: Gemini 3 uses thinking_level, not temperature
-				// Do NOT set temperature below 1.0 (causes loops)
-				temperature: 1.0,
-				// @ts-expect-error - thinking_level is a Gemini 3 preview feature
-				thinking_level: thinkingLevel
-			}
+			generationConfig
 		});
 
 		// Build conversation with system prompt if provided
+		// Ensure history format matches SDK expectations with thought signatures preserved
 		const history = systemPrompt
 			? [
 					{ role: 'user' as const, parts: [{ text: systemPrompt }] },
@@ -62,14 +74,20 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 			  ]
 			: conversationHistory;
 
+		// Start chat with history (thought signatures in parts are preserved automatically)
 		const chat = geminiModel.startChat({ history });
 		const result = await chat.sendMessage(prompt);
 		const response = result.response;
 
 		// Extract thought signature (REQUIRED for multi-turn context)
-		const thoughtSignature = response.candidates?.[0]?.content?.parts?.find(
-			(part: Part) => 'thoughtSignature' in part
-		)?.thoughtSignature as string | undefined;
+		// Thought signatures can be in any part, check all parts
+		let thoughtSignature: string | undefined;
+		for (const part of response.candidates?.[0]?.content?.parts || []) {
+			if ('thoughtSignature' in part && part.thoughtSignature) {
+				thoughtSignature = part.thoughtSignature as string;
+				break; // Use first found signature
+			}
+		}
 
 		return {
 			text: response.text(),
@@ -77,10 +95,22 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 			finishReason: response.candidates?.[0]?.finishReason
 		};
 	} catch (error) {
-		// Production error handling
-		console.error('Gemini API error:', error);
+		// Enhanced error handling with context
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		const errorDetails = error instanceof Error && 'status' in error
+			? `Status: ${(error as any).status}, Details: ${JSON.stringify((error as any).errorDetails || {})}`
+			: '';
+
+		console.error('Gemini API error:', {
+			model,
+			thinkingLevel,
+			error: errorMessage,
+			details: errorDetails
+		});
+
+		// Re-throw with more context
 		throw new Error(
-			error instanceof Error ? error.message : 'Failed to call Gemini API'
+			`Gemini API call failed (model: ${model}): ${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`
 		);
 	}
 }
@@ -94,13 +124,16 @@ export async function callGeminiWithImage(
 	mimeType: string = 'image/jpeg'
 ): Promise<string> {
 	try {
-		const model = genAI.getGenerativeModel({
-			model: 'gemini-3-flash',
-			generationConfig: {
-				temperature: 1.0,
-				// @ts-expect-error - thinking_level preview feature
-				thinking_level: 'low' // Fast for image processing
+		const generationConfig: any = {
+			temperature: 1.0,
+			thinkingConfig: {
+				thinkingLevel: 'low' // Fast for image processing
 			}
+		};
+
+		const model = genAI.getGenerativeModel({
+			model: 'gemini-3-flash-preview',
+			generationConfig
 		});
 
 		const result = await model.generateContent([
@@ -115,7 +148,11 @@ export async function callGeminiWithImage(
 
 		return result.response.text();
 	} catch (error) {
-		console.error('Gemini image processing error:', error);
-		throw new Error('Failed to process image');
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		console.error('Gemini image processing error:', {
+			error: errorMessage,
+			mimeType
+		});
+		throw new Error(`Failed to process image: ${errorMessage}`);
 	}
 }
