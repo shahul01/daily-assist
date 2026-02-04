@@ -10,6 +10,7 @@
 	let isSpeaking = $state(false);
 	let canUseTts = $state(false);
 	let preferredVoice: SpeechSynthesisVoice | null = null;
+	let isStreaming = $state(false);
 
 	if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 		canUseTts = true;
@@ -37,6 +38,39 @@
 		}
 
 		return fallbackText;
+	}
+
+	type StreamEvent = {
+		type: string;
+		agentsUsed?: string[];
+		actions?: any[];
+		text?: string;
+		message?: string;
+	};
+
+	function parseStreamEvent(line: string): Partial<{
+		agentsUsed: string[];
+		actions: any[];
+		appendText: string;
+		error: string;
+	}> | null {
+		try {
+			const event = JSON.parse(line) as StreamEvent;
+			if (event.type === 'meta')
+				return {
+					agentsUsed: event.agentsUsed ?? [],
+					actions: event.actions ?? []
+				};
+			if (event.type === 'chunk' && event.text) {
+				// Log chunk granularity for debugging (Gemini streams sentence-by-sentence, not word-by-word)
+				console.debug('[stream-chunk]', { size: event.text.length, preview: event.text.slice(0, 50) });
+				return { appendText: event.text };
+			}
+			if (event.type === 'error' && event.message) return { error: `Error: ${event.message}` };
+		} catch {
+			// Skip malformed lines
+		}
+		return null;
 	}
 
 	function speak(text: string) {
@@ -81,6 +115,7 @@
 		if (!userInput.trim()) return;
 
 		loading = true;
+		isStreaming = false;
 		response = '';
 		agentsUsed = [];
 		actions = [];
@@ -89,7 +124,10 @@
 		try {
 			const res = await fetch('/api/agents/orchestrate', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					Accept: 'text/event-stream'
+				},
 				body: JSON.stringify({
 					userInput: userInput.trim(),
 					userId
@@ -100,11 +138,45 @@
 				throw new Error(`API error: ${res.statusText}`);
 			}
 
-			const data = await res.json();
-			response = data.response;
-			agentsUsed = data.agentsUsed || [];
-			actions = data.actions || [];
-			playbackText = extractPlaybackText(actions, response);
+			const contentType = res.headers.get('Content-Type') ?? '';
+			const isStream = contentType.includes('application/x-ndjson');
+
+			if (isStream && res.body) {
+				isStreaming = true;
+				const reader = res.body.getReader();
+				const decoder = new TextDecoder();
+				let buffer = '';
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					buffer += decoder.decode(value, { stream: true });
+					const lines = buffer.split('\n');
+					buffer = lines.pop() ?? '';
+					for (const line of lines) {
+						const update = parseStreamEvent(line);
+						if (!update) continue;
+						if (update.agentsUsed !== undefined) agentsUsed = update.agentsUsed;
+						if (update.actions !== undefined) actions = update.actions;
+						if (update.appendText) response += update.appendText;
+						if (update.error) response = update.error;
+					}
+				}
+				const last = parseStreamEvent(buffer.trim());
+				if (last) {
+					if (last.agentsUsed !== undefined) agentsUsed = last.agentsUsed;
+					if (last.actions !== undefined) actions = last.actions;
+					if (last.appendText) response += last.appendText;
+					if (last.error) response = last.error;
+				}
+				isStreaming = false;
+				playbackText = extractPlaybackText(actions, response);
+			} else {
+				const data = await res.json();
+				response = data.response;
+				agentsUsed = data.agentsUsed || [];
+				actions = data.actions || [];
+				playbackText = extractPlaybackText(actions, response);
+			}
 		} catch (error) {
 			response = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 		} finally {
@@ -143,10 +215,15 @@
 		</div>
 	{/if}
 
-	{#if response}
+	{#if response || isStreaming}
 		<div class="response">
 			<strong>DailyAssist:</strong>
-			<p>{response}</p>
+			<p>
+				{response}
+				{#if isStreaming}
+					<span class="streaming-indicator">▌</span>
+				{/if}
+			</p>
 		</div>
 	{/if}
 
@@ -303,5 +380,25 @@
 	.tts-controls button:active {
 		transform: translateY(0);
 		box-shadow: 0 1px 4px hsla(150 60% 20% / 0.25);
+	}
+
+	.streaming-indicator {
+		display: inline-block;
+		color: hsl(210 60% 50%);
+		animation: pulse 0.8s ease-in-out infinite;
+		margin-left: 0.25rem;
+	}
+
+	:global(body.dark) .streaming-indicator {
+		color: hsl(210 60% 60%);
+	}
+
+	@keyframes pulse {
+		0%, 100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.4;
+		}
 	}
 </style>

@@ -26,6 +26,11 @@ export interface GeminiResponse {
 	finishReason?: string;
 }
 
+/** Chunk yielded during streaming; final chunk has done: true and optional thoughtSignature */
+export type GeminiStreamChunk =
+	| { text: string }
+	| { done: true; thoughtSignature?: string };
+
 /**
  * Call Gemini 3 with proper error handling
  *
@@ -113,6 +118,68 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 			`Gemini API call failed (model: ${model}): ${errorMessage}${errorDetails ? ` - ${errorDetails}` : ''}`
 		);
 	}
+}
+
+/**
+ * Stream Gemini 3 response; yields text chunks then a final { done, thoughtSignature }.
+ *
+ * @param options - Same as callGemini
+ * @yields { text } for each chunk, then { done: true, thoughtSignature? }
+ */
+export async function* callGeminiStream(
+	options: GeminiCallOptions
+): AsyncGenerator<GeminiStreamChunk, void, undefined> {
+	const {
+		prompt,
+		model = 'gemini-3-pro-preview',
+		thinkingLevel = 'low',
+		systemPrompt,
+		conversationHistory = []
+	} = options;
+
+	const generationConfig: Record<string, unknown> = { temperature: 1.0 };
+	if (model.includes('gemini-3') && thinkingLevel) {
+		generationConfig.thinkingConfig = { thinkingLevel };
+	}
+
+	const geminiModel = genAI.getGenerativeModel({
+		model,
+		generationConfig: generationConfig as any
+	});
+
+	const history = systemPrompt
+		? [
+				{ role: 'user' as const, parts: [{ text: systemPrompt }] },
+				{ role: 'model' as const, parts: [{ text: 'Understood.' }] },
+				...conversationHistory
+		  ]
+		: conversationHistory;
+
+	const chat = geminiModel.startChat({ history });
+	const streamResult = await chat.sendMessageStream(prompt);
+
+	for await (const chunk of streamResult.stream) {
+		try {
+			const text = chunk.text();
+			if (text) {
+				// Log chunk size for observability (sentence/completion granularity, not word-by-word)
+				console.debug('[gemini-stream]', { chunkLength: text.length, preview: text.slice(0, 50) });
+				yield { text };
+			}
+		} catch {
+			// Chunk may be blocked or empty; skip
+		}
+	}
+
+	const response = await streamResult.response;
+	let thoughtSignature: string | undefined;
+	for (const part of response.candidates?.[0]?.content?.parts || []) {
+		if ('thoughtSignature' in part && part.thoughtSignature) {
+			thoughtSignature = part.thoughtSignature as string;
+			break;
+		}
+	}
+	yield { done: true, thoughtSignature };
 }
 
 /**
