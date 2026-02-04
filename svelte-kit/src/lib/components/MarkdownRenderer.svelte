@@ -77,21 +77,27 @@
 	}
 </script>
 
-<div class="markdown-renderer">
-	<div class="markdown-content">
+<div class="markdown-renderer" role="region" aria-label="Assistant response">
+	<div
+		class="markdown-content"
+		aria-live="polite"
+		aria-busy={isStreaming}
+		aria-atomic="false"
+	>
 		{@html renderMarkdown(content)}
 		{#if isStreaming}
-			<span class="streaming-indicator">▌</span>
+			<span class="streaming-indicator" aria-hidden="true">▌</span>
 		{/if}
 	</div>
 
 	{#if content}
-		<div class="action-buttons">
+		<div class="action-buttons" role="group" aria-label="Response actions">
 			<button
 				type="button"
 				onclick={copyToClipboard}
 				class="action-btn copy-btn"
 				title="Copy response to clipboard"
+				aria-label={isCopied ? 'Copied to clipboard' : 'Copy response to clipboard'}
 			>
 				{isCopied ? '✓ Copied!' : '📋 Copy'}
 			</button>
@@ -100,6 +106,7 @@
 				onclick={exportAsMarkdown}
 				class="action-btn export-btn"
 				title="Download response as Markdown file"
+				aria-label="Download response as Markdown file"
 			>
 				⬇ Export as MD
 			</button>

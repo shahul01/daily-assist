@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MarkdownRenderer from '../MarkdownRenderer.svelte';
+	import { markdownToPlainTextForTts } from '$lib/utils/markdown';
 
 	let userInput = $state('');
 	let response = $state('');
@@ -81,7 +82,11 @@
 		const synth = window.speechSynthesis;
 		synth.cancel();
 
-		const utterance = new SpeechSynthesisUtterance(text);
+		// Strip markdown so TTS does not read "#", "*", "_", "`", etc.
+		const plainText = markdownToPlainTextForTts(text);
+		if (!plainText) return;
+
+		const utterance = new SpeechSynthesisUtterance(plainText);
 
 		if (preferredVoice) {
 			utterance.voice = preferredVoice;
@@ -225,10 +230,11 @@
 	{/if}
 
 	{#if playbackText && canUseTts}
-		<div class="tts-controls">
+		<div class="tts-controls" role="group" aria-label="Text to speech">
 			<button
 				type="button"
 				onclick={() => (isSpeaking ? stopSpeaking() : speak(playbackText))}
+				aria-label={isSpeaking ? 'Stop reading aloud' : 'Read response aloud'}
 			>
 				{isSpeaking ? 'Stop reading' : 'Read this aloud'}
 			</button>
