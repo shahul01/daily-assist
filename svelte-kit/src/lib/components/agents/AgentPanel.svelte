@@ -11,24 +11,37 @@
 	// Text that will actually be spoken by the browser TTS
 	let playbackText = $state('');
 	let isSpeaking = $state(false);
+	let isPaused = $state(false);
 	let canUseTts = $state(false);
-	let preferredVoice: SpeechSynthesisVoice | null = null;
+	let voices = $state<SpeechSynthesisVoice[]>([]);
+	let selectedVoiceId = $state<string>('');
+	let ttsRate = $state(1);
+	let ttsPitch = $state(1);
+	let ttsVolume = $state(1);
+	let showTtsOptions = $state(false);
 	let isStreaming = $state(false);
 
 	if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 		canUseTts = true;
 
-		const selectVoice = () => {
-			const voices = window.speechSynthesis.getVoices();
-			if (!voices.length) return;
-
-			// Prefer an English voice if available, otherwise first available
-			preferredVoice =
-				voices.find((v) => v.lang && v.lang.toLowerCase().startsWith('en')) ?? voices[0];
+		const loadVoices = () => {
+			const list = window.speechSynthesis.getVoices();
+			voices = list;
+			if (list.length && !selectedVoiceId) {
+				const preferred =
+					list.find((v) => v.lang && v.lang.toLowerCase().startsWith('en')) ?? list[0];
+				selectedVoiceId = preferred.name + '|' + preferred.lang;
+			}
 		};
 
-		selectVoice();
-		window.speechSynthesis.onvoiceschanged = selectVoice;
+		loadVoices();
+		window.speechSynthesis.onvoiceschanged = loadVoices;
+	}
+
+	function getSelectedVoice(): SpeechSynthesisVoice | null {
+		if (!selectedVoiceId) return voices.find((v) => v.lang?.toLowerCase().startsWith('en')) ?? voices[0] ?? null;
+		const [name, lang] = selectedVoiceId.split('|');
+		return voices.find((v) => v.name === name && v.lang === lang) ?? voices[0] ?? null;
 	}
 
 	function extractPlaybackText(allActions: any[], fallbackText: string): string {
@@ -81,26 +94,25 @@
 
 		const synth = window.speechSynthesis;
 		synth.cancel();
+		isPaused = false;
 
-		// Strip markdown so TTS does not read "#", "*", "_", "`", etc.
 		const plainText = markdownToPlainTextForTts(text);
 		if (!plainText) return;
 
 		const utterance = new SpeechSynthesisUtterance(plainText);
+		const voice = getSelectedVoice();
+		if (voice) utterance.voice = voice;
+		utterance.rate = Number(ttsRate);
+		utterance.pitch = Number(ttsPitch);
+		utterance.volume = Number(ttsVolume);
 
-		if (preferredVoice) {
-			utterance.voice = preferredVoice;
-		}
-
-		// Tune for a more natural delivery
-		utterance.rate = 0.95;
-		utterance.pitch = 1.0;
-		utterance.volume = 1.0;
 		utterance.onstart = () => {
 			isSpeaking = true;
+			isPaused = false;
 		};
 		const reset = () => {
 			isSpeaking = false;
+			isPaused = false;
 		};
 		utterance.onend = reset;
 		utterance.onerror = reset;
@@ -108,10 +120,23 @@
 		synth.speak(utterance);
 	}
 
+	function pauseSpeaking() {
+		if (!canUseTts || typeof window === 'undefined') return;
+		window.speechSynthesis.pause();
+		isPaused = true;
+	}
+
+	function resumeSpeaking() {
+		if (!canUseTts || typeof window === 'undefined') return;
+		window.speechSynthesis.resume();
+		isPaused = false;
+	}
+
 	function stopSpeaking() {
 		if (!canUseTts || typeof window === 'undefined') return;
 		window.speechSynthesis.cancel();
 		isSpeaking = false;
+		isPaused = false;
 	}
 
 	// Generate simple user ID (in production, use proper auth)
@@ -231,13 +256,90 @@
 
 	{#if playbackText && canUseTts}
 		<div class="tts-controls" role="group" aria-label="Text to speech">
-			<button
-				type="button"
-				onclick={() => (isSpeaking ? stopSpeaking() : speak(playbackText))}
-				aria-label={isSpeaking ? 'Stop reading aloud' : 'Read response aloud'}
-			>
-				{isSpeaking ? 'Stop reading' : 'Read this aloud'}
-			</button>
+			<div class="tts-buttons">
+				{#if isSpeaking}
+					<button
+						type="button"
+						onclick={isPaused ? resumeSpeaking : pauseSpeaking}
+						aria-label={isPaused ? 'Resume' : 'Pause'}
+					>
+						{isPaused ? 'Resume' : 'Pause'}
+					</button>
+					<button type="button" onclick={stopSpeaking} aria-label="Stop">Stop</button>
+				{:else}
+					<button
+						type="button"
+						onclick={() => speak(playbackText)}
+						aria-label="Read response aloud"
+					>
+						Read aloud
+					</button>
+				{/if}
+				<button
+					type="button"
+					class="tts-options-toggle"
+					onclick={() => (showTtsOptions = !showTtsOptions)}
+					aria-expanded={showTtsOptions}
+					aria-label="TTS options"
+				>
+					{showTtsOptions ? 'Hide options' : 'Options'}
+				</button>
+			</div>
+			{#if showTtsOptions}
+				<div class="tts-options">
+					<label>
+						Voice
+						<select
+							aria-label="Voice"
+							bind:value={selectedVoiceId}
+							disabled={isSpeaking}
+						>
+							{#each voices as v (v.name + v.lang)}
+								<option value={v.name + '|' + v.lang}>
+									{v.name} ({v.lang})
+								</option>
+							{/each}
+						</select>
+					</label>
+					<label>
+						Speed
+						<select aria-label="Speed" bind:value={ttsRate} disabled={isSpeaking}>
+							<option value={0.5}>0.5× Slower</option>
+							<option value={0.75}>0.75×</option>
+							<option value={1}>1× Normal</option>
+							<option value={1.25}>1.25×</option>
+							<option value={1.5}>1.5×</option>
+							<option value={2}>2× Faster</option>
+						</select>
+					</label>
+					<label>
+						Volume
+						<input
+							type="range"
+							min="0"
+							max="1"
+							step="0.1"
+							aria-label="Volume"
+							bind:value={ttsVolume}
+							disabled={isSpeaking}
+						/>
+						<span class="tts-value">{Math.round(ttsVolume * 100)}%</span>
+					</label>
+					<label>
+						Pitch
+						<input
+							type="range"
+							min="0.5"
+							max="2"
+							step="0.1"
+							aria-label="Pitch"
+							bind:value={ttsPitch}
+							disabled={isSpeaking}
+						/>
+						<span class="tts-value">{ttsPitch.toFixed(1)}</span>
+					</label>
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -353,11 +455,25 @@
 
 	.tts-controls {
 		margin-top: 1rem;
-		display: flex;
-		justify-content: flex-start;
+		padding: 1rem;
+		background: hsl(150 30% 96%);
+		border-radius: 10px;
+		border: 1px solid hsl(150 20% 90%);
 	}
 
-	.tts-controls button {
+	:global(body.dark) .tts-controls {
+		background: hsl(150 20% 18%);
+		border-color: hsl(150 15% 28%);
+	}
+
+	.tts-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	.tts-controls .tts-buttons button {
 		padding: 0.5rem 1rem;
 		background: hsl(150 60% 45%);
 		color: white;
@@ -370,15 +486,76 @@
 		transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 	}
 
-	.tts-controls button:hover {
+	.tts-controls .tts-buttons button:hover:not(:disabled) {
 		background: hsl(150 60% 40%);
 		transform: translateY(-1px);
 		box-shadow: 0 3px 8px hsla(150 60% 20% / 0.35);
 	}
 
-	.tts-controls button:active {
+	.tts-controls .tts-buttons button:active {
 		transform: translateY(0);
 		box-shadow: 0 1px 4px hsla(150 60% 20% / 0.25);
+	}
+
+	.tts-options-toggle {
+		background: hsl(210 20% 92%) !important;
+		color: hsl(210 30% 25%);
+	}
+
+	:global(body.dark) .tts-options-toggle {
+		background: hsl(210 15% 28%) !important;
+		color: hsl(210 10% 85%);
+	}
+
+	.tts-options {
+		margin-top: 1rem;
+		display: grid;
+		gap: 0.75rem;
+		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	}
+
+	.tts-options label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-size: 0.85rem;
+		color: hsl(210 10% 35%);
+	}
+
+	:global(body.dark) .tts-options label {
+		color: hsl(210 10% 75%);
+	}
+
+	.tts-options select,
+	.tts-options input[type='range'] {
+		padding: 0.35rem 0.5rem;
+		border-radius: 6px;
+		border: 1px solid hsl(210 10% 85%);
+		background: white;
+		font-size: 0.9rem;
+	}
+
+	:global(body.dark) .tts-options select,
+	:global(body.dark) .tts-options input[type='range'] {
+		background: hsl(210 20% 20%);
+		border-color: hsl(210 20% 30%);
+		color: hsl(0 0% 95%);
+	}
+
+	.tts-options input[type='range'] {
+		padding: 0;
+		accent-color: hsl(150 60% 45%);
+	}
+
+	.tts-options .tts-value {
+		font-size: 0.8rem;
+		opacity: 0.9;
+	}
+
+	.tts-options select:disabled,
+	.tts-options input:disabled {
+		opacity: 0.7;
+		cursor: not-allowed;
 	}
 
 </style>
