@@ -54,7 +54,7 @@ ${validatedInput.speed === 'fast' ? '- Keep it concise\n- Skip redundant details
 		try {
 			const result = await callGemini({
 				prompt,
-				model: 'gemini-3-flash', // Fast model for reading
+				model: 'gemini-3-flash-preview', // Fast model for reading
 				thinkingLevel: 'low', // Simple task - speed matters
 				systemPrompt
 			});
