@@ -38,7 +38,8 @@ export async function extractMemories(
 ): Promise<ExtractedMemory[]> {
 	const conversationText = messages
 		.map((m) => {
-			const text = typeof m.content === 'string' ? m.content : m.parts?.map((p) => p.text).join(' ') ?? '';
+			const text =
+				typeof m.content === 'string' ? m.content : (m.parts?.map((p) => p.text).join(' ') ?? '');
 			return `${m.role}: ${text}`;
 		})
 		.join('\n');
@@ -66,10 +67,14 @@ Respond with JSON only: { "memories": [ { "type": "...", "text": "...", "confide
 	const parsed = parseGeminiJson(result.text) as unknown;
 	const parsedSafe = ExtractionResponseSchema.safeParse(parsed);
 	if (!parsedSafe.success) {
-		const fallback = Array.isArray(parsed) ? parsed : (parsed as { memories?: unknown[] })?.memories;
+		const fallback = Array.isArray(parsed)
+			? parsed
+			: (parsed as { memories?: unknown[] })?.memories;
 		if (Array.isArray(fallback)) {
 			return fallback
-				.filter((m) => m && typeof m === 'object' && m.type && m.text != null && m.confidence != null)
+				.filter(
+					(m) => m && typeof m === 'object' && m.type && m.text != null && m.confidence != null
+				)
 				.map((m) => ({
 					type: MemoryTypeSchema.parse(m.type),
 					text: String(m.text),
@@ -84,5 +89,7 @@ Respond with JSON only: { "memories": [ { "type": "...", "text": "...", "confide
 		return [];
 	}
 
-	return parsedSafe.data.memories.filter((m) => m.confidence >= 0.5).map((m) => ({ ...m, type: m.type as ExtractedMemory['type'] }));
+	return parsedSafe.data.memories
+		.filter((m) => m.confidence >= 0.5)
+		.map((m) => ({ ...m, type: m.type as ExtractedMemory['type'] }));
 }

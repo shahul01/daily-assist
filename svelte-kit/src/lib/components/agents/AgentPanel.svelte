@@ -49,7 +49,8 @@
 	}
 
 	function getSelectedVoice(): SpeechSynthesisVoice | null {
-		if (!selectedVoiceId) return voices.find((v) => v.lang?.toLowerCase().startsWith('en')) ?? voices[0] ?? null;
+		if (!selectedVoiceId)
+			return voices.find((v) => v.lang?.toLowerCase().startsWith('en')) ?? voices[0] ?? null;
 		const [name, lang] = selectedVoiceId.split('|');
 		return voices.find((v) => v.name === name && v.lang === lang) ?? voices[0] ?? null;
 	}
@@ -89,7 +90,10 @@
 				};
 			if (event.type === 'chunk' && event.text) {
 				// Log chunk granularity for debugging (Gemini streams sentence-by-sentence, not word-by-word)
-				console.debug('[stream-chunk]', { size: event.text.length, preview: event.text.slice(0, 50) });
+				console.debug('[stream-chunk]', {
+					size: event.text.length,
+					preview: event.text.slice(0, 50)
+				});
 				return { appendText: event.text };
 			}
 			if (event.type === 'error' && event.message) return { error: `Error: ${event.message}` };
@@ -236,9 +240,7 @@
 	<h2>DailyAssist - Your AI Companion</h2>
 
 	<form onsubmit={handleSubmit}>
-		<label for="user-input">
-			What can I help you with today?
-		</label>
+		<label for="user-input"> What can I help you with today? </label>
 
 		<textarea
 			id="user-input"
@@ -265,7 +267,7 @@
 	{#if response || isStreaming}
 		<div class="response">
 			<strong>DailyAssist:</strong>
-			<MarkdownRenderer content={response} isStreaming={isStreaming} />
+			<MarkdownRenderer content={response} {isStreaming} />
 		</div>
 	{/if}
 
@@ -304,11 +306,7 @@
 				<div class="tts-options">
 					<label>
 						Voice
-						<select
-							aria-label="Voice"
-							bind:value={selectedVoiceId}
-							disabled={isSpeaking}
-						>
+						<select aria-label="Voice" bind:value={selectedVoiceId} disabled={isSpeaking}>
 							{#each voices as v (v.name + v.lang)}
 								<option value={v.name + '|' + v.lang}>
 									{v.name} ({v.lang})
@@ -498,7 +496,10 @@
 		font-weight: 500;
 		cursor: pointer;
 		box-shadow: 0 1px 4px hsla(150 60% 20% / 0.25);
-		transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+		transition:
+			background 0.15s ease,
+			transform 0.1s ease,
+			box-shadow 0.15s ease;
 	}
 
 	.tts-controls .tts-buttons button:hover:not(:disabled) {
@@ -572,5 +573,4 @@
 		opacity: 0.7;
 		cursor: not-allowed;
 	}
-
 </style>

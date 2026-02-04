@@ -37,10 +37,15 @@ export async function addMemory(data: VectorStoreAddInput): Promise<MemoryRow> {
 		embedding,
 		confidence: data.confidence ?? 0.5,
 		extraction_source: data.extractionSource ?? null,
-		context_tags: (data.contextTags as Database['public']['Tables']['memories']['Row']['context_tags']) ?? {}
+		context_tags:
+			(data.contextTags as Database['public']['Tables']['memories']['Row']['context_tags']) ?? {}
 	};
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const { data: row, error } = await supabaseServer.from('memories').insert(insert as any).select().single();
+	const { data: row, error } = await supabaseServer
+		.from('memories')
+		.insert(insert as any)
+		.select()
+		.single();
 	if (error) throw new Error(`Vector store add failed: ${error.message}`);
 	return row as MemoryRow;
 }
@@ -74,9 +79,16 @@ export async function trackAccess(memoryIds: string[]): Promise<void> {
 	if (memoryIds.length === 0) return;
 	const now = new Date().toISOString();
 	for (const id of memoryIds) {
-		const { data: row } = await supabaseServer.from('memories').select('access_count').eq('id', id).single();
+		const { data: row } = await supabaseServer
+			.from('memories')
+			.select('access_count')
+			.eq('id', id)
+			.single();
 		const next = (row as { access_count?: number } | null)?.access_count ?? 0;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		await (supabaseServer as any).from('memories').update({ last_accessed: now, access_count: next + 1 }).eq('id', id);
+		await (supabaseServer as any)
+			.from('memories')
+			.update({ last_accessed: now, access_count: next + 1 })
+			.eq('id', id);
 	}
 }

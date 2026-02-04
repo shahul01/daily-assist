@@ -64,7 +64,9 @@ ${validatedInput.speed === 'fast' ? '- Keep it concise\n- Skip redundant details
 				thoughtSignature: result.thoughtSignature
 			};
 		} catch (error) {
-			throw new Error(`Read agent failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			throw new Error(
+				`Read agent failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		}
 	}
 

@@ -9,13 +9,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		const body = await request.json();
 
 		if (!body.userInput || !body.userId) {
-			return json(
-				{ error: 'Missing required fields: userInput, userId' },
-				{ status: 400 }
-			);
+			return json({ error: 'Missing required fields: userInput, userId' }, { status: 400 });
 		}
 
-		const wantsStream = request.headers.get('Accept')?.includes(STREAM_ACCEPT) ?? body.stream === true;
+		const wantsStream =
+			request.headers.get('Accept')?.includes(STREAM_ACCEPT) ?? body.stream === true;
 
 		if (wantsStream) {
 			const stream = new ReadableStream({

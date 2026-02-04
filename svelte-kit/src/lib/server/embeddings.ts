@@ -37,7 +37,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 	const data = (await res.json()) as { embedding?: { values?: number[] } };
 	const values = data.embedding?.values;
 	if (!Array.isArray(values) || values.length !== EMBEDDING_DIM) {
-		throw new Error(`Unexpected embedding shape: got ${values?.length ?? 0}, expected ${EMBEDDING_DIM}`);
+		throw new Error(
+			`Unexpected embedding shape: got ${values?.length ?? 0}, expected ${EMBEDDING_DIM}`
+		);
 	}
 	return values;
 }

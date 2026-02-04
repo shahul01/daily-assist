@@ -17,7 +17,10 @@ export const GET: RequestHandler = async ({ url }) => {
 	} catch (error) {
 		console.error('Memory summary error:', error);
 		return json(
-			{ error: 'Failed to get memory summary', message: error instanceof Error ? error.message : 'Unknown error' },
+			{
+				error: 'Failed to get memory summary',
+				message: error instanceof Error ? error.message : 'Unknown error'
+			},
 			{ status: 500 }
 		);
 	}
@@ -43,7 +46,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (error) {
 		console.error('Memory retrieve error:', error);
 		return json(
-			{ error: 'Retrieve failed', message: error instanceof Error ? error.message : 'Unknown error' },
+			{
+				error: 'Retrieve failed',
+				message: error instanceof Error ? error.message : 'Unknown error'
+			},
 			{ status: 500 }
 		);
 	}

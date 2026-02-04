@@ -2,7 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { browser } from '$app/environment';
 
 const url = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_URL : '';
-const key = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY : '';
+const key =
+	typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY : '';
 
 /** Client-side Supabase (publishable key only). Use for anonymous auth so API calls have a valid auth.users id. */
 export const supabase = browser && url && key ? createClient(url, key) : null;

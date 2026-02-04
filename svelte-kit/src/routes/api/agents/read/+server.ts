@@ -18,10 +18,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Image reading
 		if (body.imageBase64) {
-			const result = await readAgent.readImage(
-				body.imageBase64,
-				body.mimeType || 'image/jpeg'
-			);
+			const result = await readAgent.readImage(body.imageBase64, body.mimeType || 'image/jpeg');
 			return json({ description: result });
 		}
 

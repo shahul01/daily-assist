@@ -27,9 +27,7 @@ export interface GeminiResponse {
 }
 
 /** Chunk yielded during streaming; final chunk has done: true and optional thoughtSignature */
-export type GeminiStreamChunk =
-	| { text: string }
-	| { done: true; thoughtSignature?: string };
+export type GeminiStreamChunk = { text: string } | { done: true; thoughtSignature?: string };
 
 /**
  * Parse JSON from Gemini text that may be wrapped in markdown code fences (e.g. ```json ... ```).
@@ -53,11 +51,7 @@ export function parseGeminiJson(text: string): unknown {
 	const endObject = raw.lastIndexOf('}');
 	const endArray = raw.lastIndexOf(']');
 	const end =
-		endObject === -1
-			? endArray
-			: endArray === -1
-				? endObject
-				: Math.max(endObject, endArray);
+		endObject === -1 ? endArray : endArray === -1 ? endObject : Math.max(endObject, endArray);
 
 	if (start === -1 || end === -1 || end <= start) {
 		throw new Error('Unable to locate JSON content in response');
@@ -111,7 +105,7 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 					{ role: 'user' as const, parts: [{ text: systemPrompt }] },
 					{ role: 'model' as const, parts: [{ text: 'Understood.' }] },
 					...conversationHistory
-			  ]
+				]
 			: conversationHistory;
 
 		// Start chat with history (thought signatures in parts are preserved automatically)
@@ -137,9 +131,10 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 	} catch (error) {
 		// Enhanced error handling with context
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		const errorDetails = error instanceof Error && 'status' in error
-			? `Status: ${(error as any).status}, Details: ${JSON.stringify((error as any).errorDetails || {})}`
-			: '';
+		const errorDetails =
+			error instanceof Error && 'status' in error
+				? `Status: ${(error as any).status}, Details: ${JSON.stringify((error as any).errorDetails || {})}`
+				: '';
 
 		console.error('Gemini API error:', {
 			model,
@@ -187,7 +182,7 @@ export async function* callGeminiStream(
 				{ role: 'user' as const, parts: [{ text: systemPrompt }] },
 				{ role: 'model' as const, parts: [{ text: 'Understood.' }] },
 				...conversationHistory
-		  ]
+			]
 		: conversationHistory;
 
 	const chat = geminiModel.startChat({ history });

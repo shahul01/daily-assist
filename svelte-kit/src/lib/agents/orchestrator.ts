@@ -87,15 +87,20 @@ export class Orchestrator {
 		try {
 			const summary = await getMemorySummary(validatedInput.userId, validatedInput.userInput);
 			const recent = summary.recentMemories.map((m) => `- ${m.text_content}`).join('\n');
-			memoryContext =
-				[
-					summary.activeGoals.length ? `Active goals: ${summary.activeGoals.map((g) => g.title).join('; ')}` : '',
-					summary.pendingTodos.length ? `Pending todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}` : '',
-					Object.keys(summary.preferences).length ? `Known preferences: ${JSON.stringify(summary.preferences)}` : '',
-					recent ? `Relevant past context:\n${recent}` : ''
-				]
-					.filter(Boolean)
-					.join('\n');
+			memoryContext = [
+				summary.activeGoals.length
+					? `Active goals: ${summary.activeGoals.map((g) => g.title).join('; ')}`
+					: '',
+				summary.pendingTodos.length
+					? `Pending todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}`
+					: '',
+				Object.keys(summary.preferences).length
+					? `Known preferences: ${JSON.stringify(summary.preferences)}`
+					: '',
+				recent ? `Relevant past context:\n${recent}` : ''
+			]
+				.filter(Boolean)
+				.join('\n');
 		} catch (e) {
 			console.warn('[orchestrator] memory summary failed', e);
 		}
@@ -240,7 +245,9 @@ Provide a natural, helpful response to the user explaining what was done.`,
 			};
 		} catch (error) {
 			console.error('Orchestrator error:', error);
-			throw new Error(`Orchestration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			throw new Error(
+				`Orchestration failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+			);
 		}
 	}
 
@@ -248,16 +255,24 @@ Provide a natural, helpful response to the user explaining what was done.`,
 	 * Process user input and stream the final synthesis; yields meta then chunks then done.
 	 * Planning and agent execution run first (non-streaming), then synthesis streams.
 	 */
-	async *processStream(input: OrchestratorInput): AsyncGenerator<OrchestratorStreamEvent, void, undefined> {
+	async *processStream(
+		input: OrchestratorInput
+	): AsyncGenerator<OrchestratorStreamEvent, void, undefined> {
 		const validatedInput = OrchestratorInputSchema.parse(input);
 		const history = this.conversationHistory.get(validatedInput.userId) || [];
 		let memoryContext = '';
 		try {
 			const summary = await getMemorySummary(validatedInput.userId, validatedInput.userInput);
 			memoryContext = [
-				summary.activeGoals.length ? `Goals: ${summary.activeGoals.map((g) => g.title).join('; ')}` : '',
-				summary.pendingTodos.length ? `Todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}` : '',
-				summary.recentMemories.length ? `Relevant: ${summary.recentMemories.map((m) => m.text_content).join(' | ')}` : ''
+				summary.activeGoals.length
+					? `Goals: ${summary.activeGoals.map((g) => g.title).join('; ')}`
+					: '',
+				summary.pendingTodos.length
+					? `Todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}`
+					: '',
+				summary.recentMemories.length
+					? `Relevant: ${summary.recentMemories.map((m) => m.text_content).join(' | ')}`
+					: ''
 			]
 				.filter(Boolean)
 				.join('\n');

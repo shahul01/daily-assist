@@ -78,12 +78,7 @@
 </script>
 
 <div class="markdown-renderer" role="region" aria-label="Assistant response">
-	<div
-		class="markdown-content"
-		aria-live="polite"
-		aria-busy={isStreaming}
-		aria-atomic="false"
-	>
+	<div class="markdown-content" aria-live="polite" aria-busy={isStreaming} aria-atomic="false">
 		{@html renderMarkdown(content)}
 		{#if isStreaming}
 			<span class="streaming-indicator" aria-hidden="true">▌</span>

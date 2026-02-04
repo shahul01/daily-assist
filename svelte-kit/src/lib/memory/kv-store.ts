@@ -44,6 +44,10 @@ export async function kvGetAll(userId: string, keyPrefix?: string): Promise<Reco
 }
 
 export async function kvDelete(userId: string, key: string): Promise<void> {
-	const { error } = await supabaseServer.from('user_preferences').delete().eq('user_id', userId).eq('key', key);
+	const { error } = await supabaseServer
+		.from('user_preferences')
+		.delete()
+		.eq('user_id', userId)
+		.eq('key', key);
 	if (error) throw new Error(`KV delete failed: ${error.message}`);
 }
