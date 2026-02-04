@@ -3,16 +3,88 @@
 	let response = $state('');
 	let loading = $state(false);
 	let agentsUsed = $state<string[]>([]);
+	let actions = $state<any[]>([]);
+
+	// Text that will actually be spoken by the browser TTS
+	let playbackText = $state('');
+	let isSpeaking = $state(false);
+	let canUseTts = $state(false);
+	let preferredVoice: SpeechSynthesisVoice | null = null;
+
+	if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+		canUseTts = true;
+
+		const selectVoice = () => {
+			const voices = window.speechSynthesis.getVoices();
+			if (!voices.length) return;
+
+			// Prefer an English voice if available, otherwise first available
+			preferredVoice =
+				voices.find((v) => v.lang && v.lang.toLowerCase().startsWith('en')) ?? voices[0];
+		};
+
+		selectVoice();
+		window.speechSynthesis.onvoiceschanged = selectVoice;
+	}
+
+	function extractPlaybackText(allActions: any[], fallbackText: string): string {
+		// Prefer the latest Read-To-Me agent spoken text, fall back to overall response
+		for (let i = allActions.length - 1; i >= 0; i--) {
+			const action = allActions[i];
+			if (action?.agent === 'Read-To-Me' && action.result?.spokenText) {
+				return String(action.result.spokenText);
+			}
+		}
+
+		return fallbackText;
+	}
+
+	function speak(text: string) {
+		if (!canUseTts || !text || typeof window === 'undefined') return;
+
+		const synth = window.speechSynthesis;
+		synth.cancel();
+
+		const utterance = new SpeechSynthesisUtterance(text);
+
+		if (preferredVoice) {
+			utterance.voice = preferredVoice;
+		}
+
+		// Tune for a more natural delivery
+		utterance.rate = 0.95;
+		utterance.pitch = 1.0;
+		utterance.volume = 1.0;
+		utterance.onstart = () => {
+			isSpeaking = true;
+		};
+		const reset = () => {
+			isSpeaking = false;
+		};
+		utterance.onend = reset;
+		utterance.onerror = reset;
+
+		synth.speak(utterance);
+	}
+
+	function stopSpeaking() {
+		if (!canUseTts || typeof window === 'undefined') return;
+		window.speechSynthesis.cancel();
+		isSpeaking = false;
+	}
 
 	// Generate simple user ID (in production, use proper auth)
 	const userId = crypto.randomUUID();
 
-	async function handleSubmit() {
+	async function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
 		if (!userInput.trim()) return;
 
 		loading = true;
 		response = '';
 		agentsUsed = [];
+		actions = [];
+		playbackText = '';
 
 		try {
 			const res = await fetch('/api/agents/orchestrate', {
@@ -31,6 +103,8 @@
 			const data = await res.json();
 			response = data.response;
 			agentsUsed = data.agentsUsed || [];
+			actions = data.actions || [];
+			playbackText = extractPlaybackText(actions, response);
 		} catch (error) {
 			response = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 		} finally {
@@ -42,7 +116,7 @@
 <div class="agent-panel">
 	<h2>DailyAssist - Your AI Companion</h2>
 
-	<form on:submit|preventDefault={handleSubmit}>
+	<form onsubmit={handleSubmit}>
 		<label for="user-input">
 			What can I help you with today?
 		</label>
@@ -73,6 +147,17 @@
 		<div class="response">
 			<strong>DailyAssist:</strong>
 			<p>{response}</p>
+		</div>
+	{/if}
+
+	{#if playbackText && canUseTts}
+		<div class="tts-controls">
+			<button
+				type="button"
+				onclick={() => (isSpeaking ? stopSpeaking() : speak(playbackText))}
+			>
+				{isSpeaking ? 'Stop reading' : 'Read this aloud'}
+			</button>
 		</div>
 	{/if}
 </div>
@@ -188,5 +273,35 @@
 		margin-top: 0.5rem;
 		line-height: 1.6;
 		white-space: pre-wrap;
+	}
+
+	.tts-controls {
+		margin-top: 1rem;
+		display: flex;
+		justify-content: flex-start;
+	}
+
+	.tts-controls button {
+		padding: 0.5rem 1rem;
+		background: hsl(150 60% 45%);
+		color: white;
+		border: none;
+		border-radius: 999px;
+		font-size: 0.9rem;
+		font-weight: 500;
+		cursor: pointer;
+		box-shadow: 0 1px 4px hsla(150 60% 20% / 0.25);
+		transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+	}
+
+	.tts-controls button:hover {
+		background: hsl(150 60% 40%);
+		transform: translateY(-1px);
+		box-shadow: 0 3px 8px hsla(150 60% 20% / 0.35);
+	}
+
+	.tts-controls button:active {
+		transform: translateY(0);
+		box-shadow: 0 1px 4px hsla(150 60% 20% / 0.25);
 	}
 </style>
