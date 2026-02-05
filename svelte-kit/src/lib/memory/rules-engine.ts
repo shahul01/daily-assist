@@ -42,16 +42,23 @@ export async function storeRule(
 		actions?: unknown[];
 	}
 ): Promise<void> {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const { error } = await supabaseServer.from('learned_rules').insert({
+	type LearnedRuleInsert = Database['public']['Tables']['learned_rules']['Insert'];
+	const now = new Date().toISOString();
+	const row: LearnedRuleInsert = {
 		user_id: userId,
 		rule_type: rule.rule_type,
 		pattern: rule.pattern,
 		confidence: rule.confidence,
 		data_points: rule.data_points ?? 0,
 		examples: (rule.examples as RuleRow['examples']) ?? [],
-		actions: (rule.actions as RuleRow['actions']) ?? []
-	} as any);
+		actions: (rule.actions as RuleRow['actions']) ?? [],
+		is_active: true,
+		created_at: now,
+		updated_at: now,
+		last_applied: null
+	};
+	// @ts-expect-error Supabase client generic flows as never in this project; payload matches Table insert type
+	const { error } = await supabaseServer.from('learned_rules').insert(row);
 	if (error) throw new Error(`Rules storeRule failed: ${error.message}`);
 }
 

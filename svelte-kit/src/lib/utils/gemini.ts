@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, type Part, type TextPart } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 if (!import.meta.env.VITE_GEMINI_API_KEY) {
 	throw new Error('VITE_GEMINI_API_KEY is not set in environment variables');
@@ -80,7 +80,7 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 		// According to Gemini API REST docs: generationConfig.thinkingConfig.thinkingLevel
 		// Note: Old @google/generative-ai SDK (v0.24.1) may serialize nested objects correctly
 		// If this fails, consider upgrading to @google/genai SDK or using REST API directly
-		const generationConfig: any = {
+		const generationConfig: Record<string, unknown> = {
 			temperature: 1.0
 		};
 
@@ -131,9 +131,11 @@ export async function callGemini(options: GeminiCallOptions): Promise<GeminiResp
 	} catch (error) {
 		// Enhanced error handling with context
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		type ErrorWithStatus = Error & { status?: number; errorDetails?: unknown };
+		const err = error as ErrorWithStatus;
 		const errorDetails =
 			error instanceof Error && 'status' in error
-				? `Status: ${(error as any).status}, Details: ${JSON.stringify((error as any).errorDetails || {})}`
+				? `Status: ${err.status}, Details: ${JSON.stringify(err.errorDetails ?? {})}`
 				: '';
 
 		console.error('Gemini API error:', {
@@ -174,7 +176,7 @@ export async function* callGeminiStream(
 
 	const geminiModel = genAI.getGenerativeModel({
 		model,
-		generationConfig: generationConfig as any
+		generationConfig: generationConfig as Record<string, unknown>
 	});
 
 	const history = systemPrompt
@@ -221,7 +223,7 @@ export async function callGeminiWithImage(
 	mimeType: string = 'image/jpeg'
 ): Promise<string> {
 	try {
-		const generationConfig: any = {
+		const generationConfig: Record<string, unknown> = {
 			temperature: 1.0,
 			thinkingConfig: {
 				thinkingLevel: 'low' // Fast for image processing

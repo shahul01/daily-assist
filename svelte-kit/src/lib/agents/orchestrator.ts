@@ -10,7 +10,7 @@ import { getMemorySummary, processConversation } from '$lib/memory';
 export const OrchestratorInputSchema = z.object({
 	userInput: z.string().min(1, 'Input cannot be empty'),
 	userId: z.string().min(1, 'User ID required'),
-	conversationHistory: z.array(z.any()).optional().default([])
+	conversationHistory: z.array(z.record(z.string(), z.unknown())).optional().default([])
 });
 
 export type OrchestratorInput = z.infer<typeof OrchestratorInputSchema>;
@@ -25,7 +25,7 @@ export interface OrchestratorOutput {
 	actions: Array<{
 		agent: string;
 		action: string;
-		result: any;
+		result: unknown;
 	}>;
 }
 
@@ -74,7 +74,10 @@ function normalizeAgentName(agent: string): string {
  * Key Feature: Uses thought signatures to maintain context across agents
  */
 export class Orchestrator {
-	private conversationHistory: Map<string, any[]> = new Map();
+	private conversationHistory: Map<
+		string,
+		Array<{ role: 'user' | 'model'; parts: Array<{ text: string; thoughtSignature?: string }> }>
+	> = new Map();
 
 	/**
 	 * Process user input and coordinate agents
@@ -209,10 +212,7 @@ Provide a natural, helpful response to the user explaining what was done.`,
 
 			// Update conversation history
 			history.push(
-				{
-					role: 'user',
-					parts: [{ text: validatedInput.userInput }]
-				},
+				{ role: 'user', parts: [{ text: validatedInput.userInput }] },
 				{
 					role: 'model',
 					parts: [

@@ -34,8 +34,9 @@ const ExtractionResponseSchema = z.object({
  */
 export async function extractMemories(
 	messages: Array<{ role: string; content: string; parts?: Array<{ text: string }> }>,
-	_userId: string
+	userId: string
 ): Promise<ExtractedMemory[]> {
+	void userId;
 	const conversationText = messages
 		.map((m) => {
 			const text =

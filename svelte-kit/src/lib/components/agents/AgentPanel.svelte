@@ -8,7 +8,8 @@
 	let response = $state('');
 	let loading = $state(false);
 	let agentsUsed = $state<string[]>([]);
-	let actions = $state<any[]>([]);
+	type AgentAction = { agent: string; action: string; result?: unknown };
+	let actions = $state<AgentAction[]>([]);
 	/** Valid Supabase auth user id (from anonymous sign-in). Required for reminders/memory. */
 	let userId = $state<string | null>(null);
 
@@ -55,12 +56,19 @@
 		return voices.find((v) => v.name === name && v.lang === lang) ?? voices[0] ?? null;
 	}
 
-	function extractPlaybackText(allActions: any[], fallbackText: string): string {
+	function extractPlaybackText(allActions: AgentAction[], fallbackText: string): string {
 		// Prefer the latest Read-To-Me agent spoken text, fall back to overall response
 		for (let i = allActions.length - 1; i >= 0; i--) {
 			const action = allActions[i];
-			if (action?.agent === 'Read-To-Me' && action.result?.spokenText) {
-				return String(action.result.spokenText);
+			const r = action?.result;
+			if (
+				action?.agent === 'Read-To-Me' &&
+				r &&
+				typeof r === 'object' &&
+				'spokenText' in r &&
+				typeof (r as { spokenText: unknown }).spokenText === 'string'
+			) {
+				return String((r as { spokenText: string }).spokenText);
 			}
 		}
 
@@ -70,14 +78,14 @@
 	type StreamEvent = {
 		type: string;
 		agentsUsed?: string[];
-		actions?: any[];
+		actions?: AgentAction[];
 		text?: string;
 		message?: string;
 	};
 
 	function parseStreamEvent(line: string): Partial<{
 		agentsUsed: string[];
-		actions: any[];
+		actions: AgentAction[];
 		appendText: string;
 		error: string;
 	}> | null {

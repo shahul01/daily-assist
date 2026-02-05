@@ -40,10 +40,10 @@ export async function addMemory(data: VectorStoreAddInput): Promise<MemoryRow> {
 		context_tags:
 			(data.contextTags as Database['public']['Tables']['memories']['Row']['context_tags']) ?? {}
 	};
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const { data: row, error } = await supabaseServer
 		.from('memories')
-		.insert(insert as any)
+		// @ts-expect-error Supabase client generic flows as never; insert matches MemoryInsert
+		.insert(insert)
 		.select()
 		.single();
 	if (error) throw new Error(`Vector store add failed: ${error.message}`);
@@ -60,14 +60,16 @@ export async function searchMemories(
 ): Promise<Array<MemoryRow & { similarity: number }>> {
 	const { limit = 5, threshold = 0.5, filterType = null } = options;
 	const queryEmbedding = await generateEmbedding(query);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const { data, error } = await supabaseServer.rpc('match_memories', {
+	type MatchMemoriesArgs = Database['public']['Functions']['match_memories']['Args'];
+	const rpcPayload: MatchMemoriesArgs = {
 		query_embedding: queryEmbedding,
 		match_user_id: userId,
 		match_threshold: threshold,
 		match_count: limit,
 		filter_type: filterType
-	} as any);
+	};
+	// @ts-expect-error Supabase RPC generic flows as undefined in this project; payload matches match_memories Args
+	const { data, error } = await supabaseServer.rpc('match_memories', rpcPayload);
 	if (error) throw new Error(`Vector store search failed: ${error.message}`);
 	return (data ?? []) as Array<MemoryRow & { similarity: number }>;
 }
@@ -85,10 +87,9 @@ export async function trackAccess(memoryIds: string[]): Promise<void> {
 			.eq('id', id)
 			.single();
 		const next = (row as { access_count?: number } | null)?.access_count ?? 0;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		await (supabaseServer as any)
-			.from('memories')
-			.update({ last_accessed: now, access_count: next + 1 })
-			.eq('id', id);
+		type MemoryUpdate = Database['public']['Tables']['memories']['Update'];
+		const updatePayload: MemoryUpdate = { last_accessed: now, access_count: next + 1 };
+		// @ts-expect-error Supabase client generic flows as never in this project; payload matches Table update type
+		await supabaseServer.from('memories').update(updatePayload).eq('id', id);
 	}
 }
