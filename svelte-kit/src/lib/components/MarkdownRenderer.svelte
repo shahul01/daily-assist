@@ -79,6 +79,7 @@
 
 <div class="markdown-renderer" role="region" aria-label="Assistant response">
 	<div class="markdown-content" aria-live="polite" aria-busy={isStreaming} aria-atomic="false">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -- Content sanitized with DOMPurify in renderMarkdown -->
 		{@html renderMarkdown(content)}
 		{#if isStreaming}
 			<span class="streaming-indicator" aria-hidden="true">▌</span>

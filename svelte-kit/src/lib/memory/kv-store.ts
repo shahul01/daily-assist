@@ -1,5 +1,5 @@
 import { supabaseServer } from '$lib/server/supabase';
-import type { Json } from '$lib/types/database.types';
+import type { Database, Json } from '$lib/types/database.types';
 
 /**
  * Key-value store using user_preferences table. Key format: any string (e.g. "timezone", "pref:language").
@@ -15,17 +15,18 @@ export async function kvGet(userId: string, key: string): Promise<Json | null> {
 	return (data as { value?: Json } | null)?.value ?? null;
 }
 
+type UserPrefInsert = Database['public']['Tables']['user_preferences']['Insert'];
 export async function kvSet(userId: string, key: string, value: Json): Promise<void> {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const { error } = await supabaseServer.from('user_preferences').upsert(
-		{
-			user_id: userId,
-			key,
-			value,
-			updated_at: new Date().toISOString()
-		} as any,
-		{ onConflict: 'user_id,key' }
-	);
+	const row: UserPrefInsert = {
+		user_id: userId,
+		key,
+		value,
+		updated_at: new Date().toISOString()
+	};
+	const { error } = await supabaseServer
+		.from('user_preferences')
+		// @ts-expect-error Supabase client generic flows as never; payload matches Table insert type
+		.upsert(row, { onConflict: 'user_id,key' });
 	if (error) throw new Error(`KV set failed: ${error.message}`);
 }
 

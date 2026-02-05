@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { callGemini, parseGeminiJson } from '$lib/utils/gemini';
 import { supabaseServer } from '$lib/server/supabase';
+import type { Database } from '$lib/types/database.types';
 
 /**
  * Input validation
@@ -73,16 +74,27 @@ ${validatedInput.context ? `Context: ${validatedInput.context}` : ''}`;
 		if (!task) throw new Error('Remember agent failed: could not extract a task description');
 		const dueDate = parseDueDate(reminderData.time);
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		type TodoInsert = Database['public']['Tables']['todos']['Insert'];
+		const now = new Date().toISOString();
+		const insertPayload: TodoInsert = {
+			user_id: validatedInput.userId,
+			memory_id: null,
+			goal_id: null,
+			task,
+			description: null,
+			completed: false,
+			created_at: now,
+			updated_at: now,
+			due_date: dueDate,
+			completed_at: null,
+			priority: reminderData.priority ?? null,
+			estimated_hours: null,
+			tags: {}
+		};
 		const { data: row, error } = await supabaseServer
 			.from('todos')
-			.insert({
-				user_id: validatedInput.userId,
-				task,
-				due_date: dueDate,
-				priority: reminderData.priority ?? null,
-				completed: false
-			} as any)
+			// @ts-expect-error Supabase client generic flows as never; payload matches todos Insert
+			.insert(insertPayload)
 			.select('id, task, due_date, created_at')
 			.single();
 
