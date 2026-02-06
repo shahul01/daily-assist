@@ -17,6 +17,8 @@ export const ReadAgentInputSchema = z.object({
 });
 
 export type ReadAgentInput = z.infer<typeof ReadAgentInputSchema>;
+/** Input type for read(): allows partial input; schema applies defaults. */
+export type ReadAgentInputRaw = z.input<typeof ReadAgentInputSchema>;
 
 /**
  * Output type
@@ -56,7 +58,7 @@ export class ReadAgent {
 	/**
 	 * Process text for text-to-speech
 	 */
-	async read(input: ReadAgentInput): Promise<ReadAgentOutput> {
+	async read(input: ReadAgentInputRaw): Promise<ReadAgentOutput> {
 		const validatedInput = ReadAgentInputSchema.parse(input);
 
 		const systemPrompt = `You are a Read-To-Me assistant for people with vision disabilities.

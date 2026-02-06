@@ -89,7 +89,7 @@
 		camera?.stop();
 		camera = null;
 		active = false;
-		videoEl && (videoEl.srcObject = null);
+		if (videoEl) videoEl.srcObject = null;
 	}
 
 	onDestroy(stop);
