@@ -8,14 +8,10 @@
 	let loading = $state(false);
 	let error = $state('');
 	let speed = $state<SpeechRate>('normal');
-	let selectedFile = $state<File | null>(null);
 	let fileName = $state('');
-	let voices = $state<{ name: string; lang: string; voiceUri: string }[]>([]);
 	let selectedLang = $state('en-US');
 
-	whenVoicesReady().then((v) => {
-		voices = v;
-	});
+	whenVoicesReady();
 
 	async function handleReadText() {
 		error = '';
@@ -53,7 +49,6 @@
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
-		selectedFile = file;
 		fileName = file.name;
 		loading = true;
 		try {

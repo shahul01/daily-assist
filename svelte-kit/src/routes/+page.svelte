@@ -1,5 +1,7 @@
 <script lang="ts">
 	import AgentPanel from '$lib/components/agents/AgentPanel.svelte';
+	import ReadAgent from '$lib/components/agents/ReadAgent.svelte';
+	import CameraReader from '$lib/components/agents/CameraReader.svelte';
 </script>
 
 <svelte:head>
@@ -13,6 +15,18 @@
 	</div>
 
 	<AgentPanel />
+
+	<section class="read-section" aria-labelledby="read-to-me-heading">
+		<h2 id="read-to-me-heading" class="section-heading">📖 Read-To-Me</h2>
+		<p class="section-desc">
+			Convert text, images, and PDFs to speech-friendly format. Use the camera for real-time text
+			detection.
+		</p>
+		<div class="read-widgets">
+			<ReadAgent />
+			<CameraReader />
+		</div>
+	</section>
 
 	<div class="features">
 		<div class="feature">
@@ -61,6 +75,35 @@
 
 	:global(body.dark) .hero p {
 		color: hsl(210 10% 70%);
+	}
+
+	.read-section {
+		margin-top: 2.5rem;
+	}
+
+	.section-heading {
+		font-size: 1.5rem;
+		color: hsl(210 60% 40%);
+		margin-bottom: 0.25rem;
+	}
+
+	:global(body.dark) .section-heading {
+		color: hsl(210 60% 60%);
+	}
+
+	.section-desc {
+		color: hsl(210 10% 40%);
+		margin-bottom: 1rem;
+	}
+
+	:global(body.dark) .section-desc {
+		color: hsl(210 10% 70%);
+	}
+
+	.read-widgets {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		gap: 1.5rem;
 	}
 
 	.features {
