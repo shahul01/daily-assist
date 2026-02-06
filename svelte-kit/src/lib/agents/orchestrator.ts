@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { callGemini, callGeminiStream, parseGeminiJson } from '$lib/utils/gemini';
 import { readAgent } from './readAgent';
 import { rememberAgent } from './rememberAgent';
+import { writeAgent } from './writeAgent';
 import { getMemorySummary, processConversation } from '$lib/memory';
 
 /**
@@ -43,6 +44,9 @@ interface PlannerActionParams {
 	format?: 'plain' | 'structured';
 	task?: string;
 	time?: string;
+	topic?: string;
+	tone?: string;
+	context?: string;
 }
 
 /** Planner JSON shape from Gemini */
@@ -111,13 +115,13 @@ export class Orchestrator {
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents.
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, documents (NOT IMPLEMENTED YET)
+2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
 3. Find-It Agent: Search, navigate, locate files (NOT IMPLEMENTED YET)
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication (NOT IMPLEMENTED YET)
 
 Your job: Decide which agent(s) to use based on user intent.
-Available agents RIGHT NOW: Read-To-Me, Remember-For-Me
+Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
 {
@@ -172,6 +176,37 @@ What agents should I use? What actions should they take?`,
 							});
 						} else if (action.action === 'list_reminders') {
 							result = await rememberAgent.listReminders(validatedInput.userId);
+						}
+						break;
+
+					case 'Write-For-Me':
+						if (action.action === 'compose_email') {
+							result = await writeAgent.composeEmail({
+								topic: params?.topic ?? params?.text ?? validatedInput.userInput,
+								tone:
+									(params?.tone as
+										| 'formal'
+										| 'casual'
+										| 'friendly'
+										| 'professional'
+										| 'persuasive') ?? 'professional',
+								context: params?.context,
+								userId: validatedInput.userId
+							});
+						} else if (action.action === 'correct_grammar' && params?.text?.trim()) {
+							result = { correctedText: await writeAgent.correctGrammar(params.text.trim()) };
+						} else if (action.action === 'adjust_tone' && params?.text?.trim()) {
+							result = {
+								adjustedText: await writeAgent.adjustTone(
+									params.text.trim(),
+									(params?.tone as
+										| 'formal'
+										| 'casual'
+										| 'friendly'
+										| 'professional'
+										| 'persuasive') ?? 'professional'
+								)
+							};
 						}
 						break;
 
@@ -283,14 +318,14 @@ Provide a natural, helpful response to the user explaining what was done.`,
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents.
 ${memoryContext ? `\nUser context:\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, documents (NOT IMPLEMENTED YET)
+2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
 3. Find-It Agent: Search, navigate, locate files (NOT IMPLEMENTED YET)
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication (NOT IMPLEMENTED YET)
 
 Your job: Decide which agent(s) to use based on user intent.
 
-Available agents RIGHT NOW: Read-To-Me, Remember-For-Me
+Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
 {
@@ -341,6 +376,37 @@ What agents should I use? What actions should they take?`,
 							});
 						} else if (action.action === 'list_reminders') {
 							result = await rememberAgent.listReminders(validatedInput.userId);
+						}
+						break;
+
+					case 'Write-For-Me':
+						if (action.action === 'compose_email') {
+							result = await writeAgent.composeEmail({
+								topic: params?.topic ?? params?.text ?? validatedInput.userInput,
+								tone:
+									(params?.tone as
+										| 'formal'
+										| 'casual'
+										| 'friendly'
+										| 'professional'
+										| 'persuasive') ?? 'professional',
+								context: params?.context,
+								userId: validatedInput.userId
+							});
+						} else if (action.action === 'correct_grammar' && params?.text?.trim()) {
+							result = { correctedText: await writeAgent.correctGrammar(params.text.trim()) };
+						} else if (action.action === 'adjust_tone' && params?.text?.trim()) {
+							result = {
+								adjustedText: await writeAgent.adjustTone(
+									params.text.trim(),
+									(params?.tone as
+										| 'formal'
+										| 'casual'
+										| 'friendly'
+										| 'professional'
+										| 'persuasive') ?? 'professional'
+								)
+							};
 						}
 						break;
 

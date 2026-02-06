@@ -2,6 +2,16 @@
 	import AgentPanel from '$lib/components/agents/AgentPanel.svelte';
 	import ReadAgent from '$lib/components/agents/ReadAgent.svelte';
 	import CameraReader from '$lib/components/agents/CameraReader.svelte';
+	import WriteAgent from '$lib/components/agents/WriteAgent.svelte';
+	import { getOrCreateUserId } from '$lib/supabase';
+	import { onMount } from 'svelte';
+
+	let writeAgentUserId = $state<string>('');
+	onMount(() => {
+		getOrCreateUserId().then((id) => {
+			writeAgentUserId = id ?? '';
+		});
+	});
 </script>
 
 <svelte:head>
@@ -28,10 +38,23 @@
 		</div>
 	</section>
 
+	<section class="write-section" aria-labelledby="write-for-me-heading">
+		<h2 id="write-for-me-heading" class="section-heading">✍️ Write-For-Me</h2>
+		<p class="section-desc">
+			Compose emails, correct grammar, adjust tone. Use voice dictation or choose from templates.
+		</p>
+		<WriteAgent userId={writeAgentUserId} />
+	</section>
+
 	<div class="features">
 		<div class="feature">
 			<h3>📖 Read-To-Me</h3>
 			<p>Converts text to speech-friendly format for vision disabilities</p>
+		</div>
+
+		<div class="feature">
+			<h3>✍️ Write-For-Me</h3>
+			<p>Drafts emails, corrects grammar, and adjusts tone for motor or cognitive support</p>
 		</div>
 
 		<div class="feature">
@@ -77,7 +100,8 @@
 		color: hsl(210 10% 70%);
 	}
 
-	.read-section {
+	.read-section,
+	.write-section {
 		margin-top: 2.5rem;
 	}
 

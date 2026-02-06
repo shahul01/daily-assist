@@ -20,7 +20,7 @@ Think properly and well.
 Create Todos.
 Do web search if necessary like stuck in a bug or something.
 
-Remember to check for errors with `pnpm run check` and `pnpm eslint .` and fix them properly.
+Remember to check for errors with `pnpm run check` and `pnpm eslint .` and fix them properly. And at end, there should be 0 errors from both commands.
 
 <!-- Design -->
 Design is how it works first and then its about looks.
