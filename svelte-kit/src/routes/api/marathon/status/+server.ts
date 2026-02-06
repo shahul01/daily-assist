@@ -1,7 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { marathonOrchestrator } from '$lib/agents/marathonOrchestrator';
 import { supabaseServer } from '$lib/server/supabase';
+import type { Database } from '$lib/types/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RequestHandler } from './$types';
+
+type MarathonSessionRow = Database['public']['Tables']['marathon_sessions']['Row'];
 
 export const GET: RequestHandler = async ({ url }) => {
 	try {
@@ -12,7 +16,8 @@ export const GET: RequestHandler = async ({ url }) => {
 
 		const sessionId = marathonOrchestrator.getSessionId();
 
-		const { data: sessions, error } = await (supabaseServer as any)
+		const client = supabaseServer as SupabaseClient<Database>;
+		const { data: sessions, error } = await client
 			.from('marathon_sessions')
 			.select('id, status, mode, started_at, last_activity_at, duration_hours')
 			.eq('user_id', userId)
@@ -32,7 +37,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		return json({
 			activeSessionId: sessionId,
 			running: !!sessionId,
-			sessions: (sessions ?? []).map((s: any) => ({
+			sessions: (sessions ?? []).map((s: MarathonSessionRow) => ({
 				id: s.id,
 				status: s.status,
 				mode: s.mode,

@@ -26,7 +26,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		return json({
 			started: true,
-			message: 'Marathon session started in background. Use GET /api/marathon/status?userId=... to check status.'
+			message:
+				'Marathon session started in background. Use GET /api/marathon/status?userId=... to check status.'
 		});
 	} catch (error) {
 		console.error('Marathon start API error:', error);
