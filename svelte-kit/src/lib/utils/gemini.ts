@@ -255,3 +255,35 @@ export async function callGeminiWithImage(
 		throw new Error(`Failed to process image: ${errorMessage}`);
 	}
 }
+
+/** Normalize base64: strip data URL prefix if present, return raw base64 */
+function normalizeBase64(input: string): string {
+	const comma = input.indexOf(',');
+	return comma >= 0 ? input.slice(comma + 1) : input;
+}
+
+/**
+ * Call Gemini with arbitrary inline data (image or PDF).
+ * Use for PDF reading and other document types supported by the API.
+ */
+export async function callGeminiWithInlineData(
+	prompt: string,
+	base64: string,
+	mimeType: string,
+	options: { thinkingLevel?: 'low' | 'medium' | 'high'; model?: string } = {}
+): Promise<string> {
+	const { thinkingLevel = 'low', model = 'gemini-3-flash-preview' } = options;
+	const generationConfig: Record<string, unknown> = {
+		temperature: 1.0,
+		thinkingConfig: { thinkingLevel }
+	};
+	const geminiModel = genAI.getGenerativeModel({
+		model,
+		generationConfig
+	});
+	const result = await geminiModel.generateContent([
+		{ text: prompt },
+		{ inlineData: { mimeType, data: normalizeBase64(base64) } }
+	]);
+	return result.response.text();
+}
