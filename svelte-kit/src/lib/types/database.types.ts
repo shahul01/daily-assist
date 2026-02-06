@@ -217,6 +217,141 @@ export interface Database {
 				};
 				Update: Partial<Database['public']['Tables']['frequency_tracking']['Insert']>;
 			};
+			marathon_sessions: {
+				Row: {
+					id: string;
+					user_id: string;
+					status: string;
+					mode: string;
+					started_at: string;
+					ended_at: string | null;
+					duration_hours: number | null;
+					last_activity_at: string;
+					config: Json;
+					metadata: Json;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					status?: string;
+					mode?: string;
+					started_at?: string;
+					ended_at?: string | null;
+					duration_hours?: number | null;
+					last_activity_at?: string;
+					config?: Json;
+					metadata?: Json;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['marathon_sessions']['Insert']>;
+			};
+			thought_signatures: {
+				Row: {
+					id: string;
+					user_id: string;
+					marathon_session_id: string | null;
+					signature: string;
+					context: string | null;
+					agent_used: string | null;
+					task_completed: boolean;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					marathon_session_id?: string | null;
+					signature: string;
+					context?: string | null;
+					agent_used?: string | null;
+					task_completed?: boolean;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['thought_signatures']['Insert']>;
+			};
+			marathon_actions: {
+				Row: {
+					id: string;
+					marathon_session_id: string;
+					user_id: string;
+					action_type: string;
+					agent_name: string;
+					action_payload: Json;
+					result: Json | null;
+					thought_signature_id: string | null;
+					success: boolean;
+					retry_count: number;
+					verification_passed: boolean | null;
+					error_message: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					marathon_session_id: string;
+					user_id: string;
+					action_type: string;
+					agent_name: string;
+					action_payload?: Json;
+					result?: Json | null;
+					thought_signature_id?: string | null;
+					success?: boolean;
+					retry_count?: number;
+					verification_passed?: boolean | null;
+					error_message?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['marathon_actions']['Insert']>;
+			};
+			agent_executions: {
+				Row: {
+					id: string;
+					marathon_action_id: string;
+					attempt_number: number;
+					agent_name: string;
+					input_snapshot: Json | null;
+					output_snapshot: Json | null;
+					success: boolean;
+					error_message: string | null;
+					duration_ms: number | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					marathon_action_id: string;
+					attempt_number?: number;
+					agent_name: string;
+					input_snapshot?: Json | null;
+					output_snapshot?: Json | null;
+					success?: boolean;
+					error_message?: string | null;
+					duration_ms?: number | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['agent_executions']['Insert']>;
+			};
+			marathon_checkpoints: {
+				Row: {
+					id: string;
+					marathon_session_id: string;
+					sequence_number: number;
+					full_state: Json | null;
+					thought_signature_ids: string[] | null;
+					last_action_id: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					marathon_session_id: string;
+					sequence_number: number;
+					full_state?: Json | null;
+					thought_signature_ids?: string[] | null;
+					last_action_id?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['marathon_checkpoints']['Insert']>;
+			};
 		};
 		Functions: {
 			match_memories: {
@@ -235,6 +370,10 @@ export interface Database {
 					relevance_score: number;
 					similarity: number;
 				}[];
+			};
+			prune_old_marathon_data: {
+				Args: Record<string, never>;
+				Returns: void;
 			};
 		};
 	};

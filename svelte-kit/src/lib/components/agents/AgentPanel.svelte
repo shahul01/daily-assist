@@ -3,6 +3,8 @@
 	import MarkdownRenderer from '../MarkdownRenderer.svelte';
 	import { markdownToPlainTextForTts } from '$lib/utils/markdown';
 	import { getOrCreateUserId } from '$lib/supabase';
+	import MarathonStatus from './MarathonStatus.svelte';
+	import ThoughtSignatureViewer from './ThoughtSignatureViewer.svelte';
 
 	let userInput = $state('');
 	let response = $state('');
@@ -12,6 +14,9 @@
 	let actions = $state<AgentAction[]>([]);
 	/** Valid Supabase auth user id (from anonymous sign-in). Required for reminders/memory. */
 	let userId = $state<string | null>(null);
+	let marathonStarting = $state(false);
+	let marathonStopping = $state(false);
+	let marathonRefreshKey = $state(0);
 
 	onMount(() => {
 		getOrCreateUserId().then((id) => {
@@ -242,10 +247,80 @@
 			loading = false;
 		}
 	}
+
+	async function startMarathon() {
+		const uid = userId ?? (await getOrCreateUserId());
+		if (!uid) return;
+		marathonStarting = true;
+		try {
+			const res = await fetch('/api/marathon/start', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ userId: uid, durationHours: 24, mode: 'hybrid' })
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.message ?? data.error ?? 'Start failed');
+			marathonRefreshKey++;
+		} catch (e) {
+			response = `Marathon start error: ${e instanceof Error ? e.message : 'Unknown'}`;
+		} finally {
+			marathonStarting = false;
+		}
+	}
+
+	async function stopMarathon() {
+		const uid = userId ?? (await getOrCreateUserId());
+		if (!uid) return;
+		marathonStopping = true;
+		try {
+			const res = await fetch('/api/marathon/stop', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ userId: uid })
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.message ?? data.error ?? 'Stop failed');
+			marathonRefreshKey++;
+		} catch (e) {
+			response = `Marathon stop error: ${e instanceof Error ? e.message : 'Unknown'}`;
+		} finally {
+			marathonStopping = false;
+		}
+	}
+
+	const thoughtFlowItems = $derived(
+		actions.map((a) => ({ context: String(a.action), agent_used: a.agent }))
+	);
 </script>
 
 <div class="agent-panel">
 	<h2>DailyAssist - Your AI Companion</h2>
+
+	{#if userId}
+		<div class="marathon-section mb-4 flex flex-wrap items-start gap-3">
+			<MarathonStatus {userId} refreshTrigger={marathonRefreshKey} />
+			<div class="flex gap-2">
+				<button
+					type="button"
+					class="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-3 py-1.5 text-sm hover:bg-[hsl(var(--muted))]/80 dark:border-[hsl(var(--border))]"
+					onclick={startMarathon}
+					disabled={marathonStarting || marathonStopping}
+					aria-label="Start marathon session"
+				>
+					{marathonStarting ? 'Starting…' : 'Start marathon'}
+				</button>
+				<button
+					type="button"
+					class="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-3 py-1.5 text-sm hover:bg-[hsl(var(--muted))]/80 dark:border-[hsl(var(--border))]"
+					onclick={stopMarathon}
+					disabled={marathonStopping || marathonStarting}
+					aria-label="Stop marathon session"
+				>
+					{marathonStopping ? 'Stopping…' : 'Stop marathon'}
+				</button>
+			</div>
+		</div>
+	{/if}
 
 	<form onsubmit={handleSubmit}>
 		<label for="user-input"> What can I help you with today? </label>
@@ -270,6 +345,10 @@
 			<strong>Agents used:</strong>
 			{agentsUsed.join(', ')}
 		</div>
+	{/if}
+
+	{#if thoughtFlowItems.length > 0}
+		<ThoughtSignatureViewer items={thoughtFlowItems} />
 	{/if}
 
 	{#if response || isStreaming}
