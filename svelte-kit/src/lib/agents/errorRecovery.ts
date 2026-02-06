@@ -16,14 +16,7 @@ export interface RecoveryDecision {
 	retryAfterMs?: number;
 }
 
-const TRANSIENT_PATTERNS = [
-	/timeout/i,
-	/rate limit/i,
-	/network/i,
-	/ECONNRESET/i,
-	/503/,
-	/429/
-];
+const TRANSIENT_PATTERNS = [/timeout/i, /rate limit/i, /network/i, /ECONNRESET/i, /503/, /429/];
 
 const PROMPT_PATTERNS = [
 	/could not extract/i,

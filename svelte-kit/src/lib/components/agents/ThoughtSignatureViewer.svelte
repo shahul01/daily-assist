@@ -20,8 +20,7 @@
 					class="rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-2 py-1.5 dark:border-[hsl(var(--border))]"
 				>
 					{#if item.agent_used}
-						<span
-							class="font-medium text-[hsl(var(--primary))] dark:text-[hsl(var(--primary))]"
+						<span class="font-medium text-[hsl(var(--primary))] dark:text-[hsl(var(--primary))]"
 							>{item.agent_used}</span
 						>
 						<span class="text-[hsl(var(--muted-foreground))]"> · </span>

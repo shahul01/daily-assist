@@ -1,4 +1,8 @@
 import { supabaseServer } from '$lib/server/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '$lib/types/database.types';
+
+const supabase = supabaseServer as SupabaseClient<Database>;
 
 export interface MarathonCheckpointState {
 	sequenceNumber: number;
@@ -16,14 +20,17 @@ export async function saveCheckpoint(
 	sessionId: string,
 	state: MarathonCheckpointState
 ): Promise<void> {
-	// New marathon tables; use type assertion until DB types are regenerated
-	const { error } = await (supabaseServer as any).from('marathon_checkpoints').insert({
-		marathon_session_id: sessionId,
-		sequence_number: state.sequenceNumber,
-		full_state: state.conversationHistory ?? state.metadata ?? null,
-		thought_signature_ids: state.lastThoughtSignatureIds ?? [],
-		last_action_id: state.lastActionId ?? null
-	});
+	type CheckpointInsert = Database['public']['Tables']['marathon_checkpoints']['Insert'];
+	const { error } = await supabase
+		.from('marathon_checkpoints')
+		// @ts-expect-error Supabase client infers never for marathon_checkpoints insert
+		.insert({
+			marathon_session_id: sessionId,
+			sequence_number: state.sequenceNumber,
+			full_state: state.conversationHistory ?? state.metadata ?? null,
+			thought_signature_ids: state.lastThoughtSignatureIds ?? [],
+			last_action_id: state.lastActionId ?? null
+		} as CheckpointInsert);
 	if (error) {
 		console.error('[stateManager] saveCheckpoint failed', { sessionId, error: error.message });
 		throw error;
@@ -36,7 +43,7 @@ export async function saveCheckpoint(
 export async function loadLatestCheckpoint(
 	sessionId: string
 ): Promise<MarathonCheckpointState | null> {
-	const { data, error } = await (supabaseServer as any)
+	const { data, error } = await supabase
 		.from('marathon_checkpoints')
 		.select('sequence_number, full_state, thought_signature_ids, last_action_id')
 		.eq('marathon_session_id', sessionId)
@@ -70,8 +77,10 @@ export async function persistThoughtSignature(
 	agentUsed: string,
 	taskCompleted: boolean
 ): Promise<string> {
-	const { data, error } = await (supabaseServer as any)
+	type ThoughtSigInsert = Database['public']['Tables']['thought_signatures']['Insert'];
+	const { data, error } = await supabase
 		.from('thought_signatures')
+		// @ts-expect-error Supabase client infers never for thought_signatures insert
 		.insert({
 			user_id: userId,
 			marathon_session_id: sessionId,
@@ -79,12 +88,15 @@ export async function persistThoughtSignature(
 			context,
 			agent_used: agentUsed,
 			task_completed: taskCompleted
-		})
+		} as ThoughtSigInsert)
 		.select('id')
 		.single();
 
 	if (error) {
-		console.error('[stateManager] persistThoughtSignature failed', { userId, error: error.message });
+		console.error('[stateManager] persistThoughtSignature failed', {
+			userId,
+			error: error.message
+		});
 		throw error;
 	}
 	return (data as { id: string }).id;
@@ -97,8 +109,10 @@ export async function loadRecentThoughtSignatures(
 	userId: string,
 	sessionId: string | null,
 	limit: number = 20
-): Promise<Array<{ id: string; signature: string; context: string | null; agent_used: string | null }>> {
-	let q = (supabaseServer as any)
+): Promise<
+	Array<{ id: string; signature: string; context: string | null; agent_used: string | null }>
+> {
+	let q = supabase
 		.from('thought_signatures')
 		.select('id, signature, context, agent_used')
 		.eq('user_id', userId)
@@ -124,7 +138,7 @@ export async function loadRecentThoughtSignatures(
  * Run 14-day pruning (call from cron or periodically).
  */
 export async function pruneOldMarathonData(): Promise<void> {
-	const { error } = await (supabaseServer as any).rpc('prune_old_marathon_data');
+	const { error } = await supabase.rpc('prune_old_marathon_data');
 	if (error) {
 		console.error('[stateManager] pruneOldMarathonData failed', error.message);
 		throw error;

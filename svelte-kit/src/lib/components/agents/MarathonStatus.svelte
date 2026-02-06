@@ -47,7 +47,7 @@
 		}
 	});
 	$effect(() => {
-		refreshTrigger;
+		void refreshTrigger;
 		if (userId) fetchStatus();
 	});
 
@@ -60,7 +60,9 @@
 	}
 </script>
 
-<div class="marathon-status rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-sm dark:border-[hsl(var(--border))]">
+<div
+	class="marathon-status rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-sm dark:border-[hsl(var(--border))]"
+>
 	<h3 class="mb-2 text-sm font-medium text-[hsl(var(--foreground))]">Marathon session</h3>
 	{#if loading}
 		<p class="text-sm text-[hsl(var(--muted-foreground))]">Loading…</p>
@@ -86,7 +88,9 @@
 					<summary class="cursor-pointer text-[hsl(var(--muted-foreground))] hover:underline">
 						Recent sessions ({sessions.length})
 					</summary>
-					<ul class="mt-1 list-inside list-disc space-y-1 text-xs text-[hsl(var(--muted-foreground))]">
+					<ul
+						class="mt-1 list-inside list-disc space-y-1 text-xs text-[hsl(var(--muted-foreground))]"
+					>
 						{#each sessions as s (s.id)}
 							<li>
 								{s.status} · {s.mode} · started {formatDate(s.started_at)}

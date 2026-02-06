@@ -3,15 +3,24 @@ import { callGemini, parseGeminiJson } from '$lib/utils/gemini';
 import { getMemorySummary, processConversation } from '$lib/memory';
 import { readAgent } from './readAgent';
 import { rememberAgent } from './rememberAgent';
-import { verify, hasObviousFailure, type VerificationStatus, type ActionResultItem } from './verification';
+import {
+	verify,
+	hasObviousFailure,
+	type VerificationStatus,
+	type ActionResultItem
+} from './verification';
 import { decideRecovery, getBackoffMs, sleep as sleepMs } from './errorRecovery';
 import {
 	saveCheckpoint,
-	loadLatestCheckpoint,
 	persistThoughtSignature,
 	loadRecentThoughtSignatures
 } from './stateManager';
 import { supabaseServer } from '$lib/server/supabase';
+import type { Database } from '$lib/types/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+/** Cast needed: SupabaseClient<Database> still infers never for marathon_sessions in this SDK version. */
+const marathonDb = supabaseServer as SupabaseClient<Database>;
 
 /** User state observed each cycle (for background or on-demand) */
 export interface UserState {
@@ -71,7 +80,11 @@ export class MarathonOrchestrator {
 	/**
 	 * Observe user state (for this cycle). On-demand: pass lastInput; background: poll.
 	 */
-	async observe(userId: string, lastInput?: string, source: 'on_demand' | 'background' = 'on_demand'): Promise<UserState> {
+	async observe(
+		userId: string,
+		lastInput?: string,
+		source: 'on_demand' | 'background' = 'on_demand'
+	): Promise<UserState> {
 		let pendingRemindersCount = 0;
 		try {
 			const reminders = await rememberAgent.listReminders(userId);
@@ -100,8 +113,12 @@ export class MarathonOrchestrator {
 				userState.lastInput ?? 'current context'
 			);
 			memoryContext = [
-				summary.activeGoals.length ? `Goals: ${summary.activeGoals.map((g) => g.title).join('; ')}` : '',
-				summary.pendingTodos.length ? `Todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}` : '',
+				summary.activeGoals.length
+					? `Goals: ${summary.activeGoals.map((g) => g.title).join('; ')}`
+					: '',
+				summary.pendingTodos.length
+					? `Todos: ${summary.pendingTodos.map((t) => t.task).join('; ')}`
+					: '',
 				summary.recentMemories.length
 					? `Relevant: ${summary.recentMemories.map((m) => m.text_content).join(' | ')}`
 					: ''
@@ -244,11 +261,7 @@ Output JSON only (no markdown):
 	/**
 	 * Update memory: persist thought signatures and conversation.
 	 */
-	async updateMemory(
-		userId: string,
-		decision: Decision,
-		results: ActionResults
-	): Promise<void> {
+	async updateMemory(userId: string, decision: Decision, results: ActionResults): Promise<void> {
 		if (results.thoughtSignature) {
 			try {
 				await persistThoughtSignature(
@@ -265,7 +278,10 @@ Output JSON only (no markdown):
 		}
 		const history = this.conversationHistory.get(userId) || [];
 		history.push(
-			{ role: 'user', parts: [{ text: decision.intent, thoughtSignature: decision.thoughtSignature }] },
+			{
+				role: 'user',
+				parts: [{ text: decision.intent, thoughtSignature: decision.thoughtSignature }]
+			},
 			{
 				role: 'model',
 				parts: [
@@ -295,13 +311,12 @@ Output JSON only (no markdown):
 	 */
 	private async maybeCheckpoint(userId: string, config: MarathonConfig): Promise<void> {
 		this.actionCountSinceCheckpoint++;
-		if (
-			this.sessionId &&
-			this.actionCountSinceCheckpoint >= config.checkpointEveryNActions
-		) {
+		if (this.sessionId && this.actionCountSinceCheckpoint >= config.checkpointEveryNActions) {
 			const history = this.conversationHistory.get(userId) || [];
 			await saveCheckpoint(this.sessionId, {
-				sequenceNumber: Math.floor(this.actionCountSinceCheckpoint / config.checkpointEveryNActions),
+				sequenceNumber: Math.floor(
+					this.actionCountSinceCheckpoint / config.checkpointEveryNActions
+				),
 				conversationHistory: history.slice(-50),
 				metadata: { actionCount: this.actionCountSinceCheckpoint }
 			});
@@ -325,10 +340,10 @@ Output JSON only (no markdown):
 				observeIntervalSeconds: validated.observeIntervalSeconds
 			}
 		};
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const { data: session, error: sessionError } = await (supabaseServer as any)
+		const { data: session, error: sessionError } = await marathonDb
 			.from('marathon_sessions')
-			.insert(insertPayload)
+			// @ts-expect-error Supabase client infers never for marathon_sessions insert in this SDK
+			.insert(insertPayload as Database['public']['Tables']['marathon_sessions']['Insert'])
 			.select('id')
 			.single();
 
@@ -363,9 +378,12 @@ Output JSON only (no markdown):
 					await this.updateMemory(validated.userId, decision, results);
 				}
 				await this.maybeCheckpoint(validated.userId, validated);
-				await (supabaseServer as any)
+				await marathonDb
 					.from('marathon_sessions')
-					.update({ last_activity_at: new Date().toISOString() })
+					// @ts-expect-error Supabase client infers never for marathon_sessions update
+					.update({
+						last_activity_at: new Date().toISOString()
+					} as Database['public']['Tables']['marathon_sessions']['Update'])
 					.eq('id', this.sessionId!);
 				await sleepMs(intervalMs);
 			}
@@ -377,9 +395,10 @@ Output JSON only (no markdown):
 					(Date.now() - (endAt - validated.durationHours * 60 * 60 * 1000)) / 3600000
 				)
 			};
-			await (supabaseServer as any)
+			await marathonDb
 				.from('marathon_sessions')
-				.update(updatePayload)
+				// @ts-expect-error Supabase client infers never for marathon_sessions update
+				.update(updatePayload as Database['public']['Tables']['marathon_sessions']['Update'])
 				.eq('id', this.sessionId!);
 			this.sessionId = null;
 		}

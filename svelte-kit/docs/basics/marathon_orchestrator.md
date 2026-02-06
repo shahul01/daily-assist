@@ -18,12 +18,12 @@ Central coordinator that runs 24/7 or on-demand, maintaining thought signatures 
 import { marathonOrchestrator } from '$lib/agents/marathonOrchestrator';
 
 await marathonOrchestrator.runMarathon({
-  userId: 'user-uuid',
-  durationHours: 24,
-  mode: 'hybrid',
-  observeIntervalSeconds: 60,
-  checkpointEveryNActions: 10,
-  maxRetriesPerAction: 3,
+	userId: 'user-uuid',
+	durationHours: 24,
+	mode: 'hybrid',
+	observeIntervalSeconds: 60,
+	checkpointEveryNActions: 10,
+	maxRetriesPerAction: 3
 });
 ```
 
@@ -41,9 +41,9 @@ marathonOrchestrator.stop();
 const userState = await marathonOrchestrator.observe(userId, 'Remind me at 8 PM', 'on_demand');
 const decision = await marathonOrchestrator.reason(userState);
 if (decision) {
-  const results = await marathonOrchestrator.act(decision, config);
-  const verification = await marathonOrchestrator.verify(decision.intent, results);
-  await marathonOrchestrator.updateMemory(userId, decision, results);
+	const results = await marathonOrchestrator.act(decision, config);
+	const verification = await marathonOrchestrator.verify(decision.intent, results);
+	await marathonOrchestrator.updateMemory(userId, decision, results);
 }
 ```
 
