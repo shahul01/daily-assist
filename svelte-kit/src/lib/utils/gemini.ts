@@ -263,6 +263,26 @@ function normalizeBase64(input: string): string {
 }
 
 /**
+ * Call Gemini with image and return raw text (for structured JSON parsing).
+ * Use for vision agents (e.g. See-For-Me) that need a single image + prompt.
+ *
+ * @param prompt - Text prompt
+ * @param imageBase64 - Data URL or raw base64
+ * @param mimeType - e.g. image/jpeg
+ * @returns Model text response
+ */
+export async function callGeminiWithVision(
+	prompt: string,
+	imageBase64: string,
+	mimeType: string = 'image/jpeg'
+): Promise<string> {
+	return callGeminiWithInlineData(prompt, imageBase64, mimeType, {
+		thinkingLevel: 'low',
+		model: 'gemini-3-flash-preview'
+	});
+}
+
+/**
  * Call Gemini with arbitrary inline data (image or PDF).
  * Use for PDF reading and other document types supported by the API.
  */
