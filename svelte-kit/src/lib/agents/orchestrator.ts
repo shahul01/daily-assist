@@ -47,6 +47,14 @@ interface PlannerActionParams {
 	topic?: string;
 	tone?: string;
 	context?: string;
+	name?: string;
+	scheduleText?: string;
+	isCritical?: boolean;
+	title?: string;
+	appointmentTime?: string;
+	description?: string;
+	location?: string;
+	days?: number;
 }
 
 /** Planner JSON shape from Gemini */
@@ -176,6 +184,33 @@ What agents should I use? What actions should they take?`,
 							});
 						} else if (action.action === 'list_reminders') {
 							result = await rememberAgent.listReminders(validatedInput.userId);
+						} else if (action.action === 'create_medication') {
+							result = await rememberAgent.createMedication({
+								userId: validatedInput.userId,
+								name: params?.name ?? '',
+								scheduleText: params?.scheduleText,
+								isCritical: params?.isCritical
+							});
+						} else if (action.action === 'create_appointment') {
+							result = await rememberAgent.createAppointment({
+								userId: validatedInput.userId,
+								title: params?.title ?? '',
+								appointmentTime: params?.appointmentTime ?? '',
+								description: params?.description,
+								location: params?.location
+							});
+						} else if (action.action === 'list_medications') {
+							result = await rememberAgent.listMedications(validatedInput.userId);
+						} else if (action.action === 'list_appointments') {
+							result = await rememberAgent.listAppointments(validatedInput.userId, params?.days);
+						} else if (action.action === 'analyze_patterns') {
+							result = await rememberAgent.analyzePatterns(
+								validatedInput.userId,
+								validatedInput.conversationHistory as Array<{
+									role: string;
+									parts?: Array<{ text: string }>;
+								}>
+							);
 						}
 						break;
 
@@ -376,6 +411,33 @@ What agents should I use? What actions should they take?`,
 							});
 						} else if (action.action === 'list_reminders') {
 							result = await rememberAgent.listReminders(validatedInput.userId);
+						} else if (action.action === 'create_medication') {
+							result = await rememberAgent.createMedication({
+								userId: validatedInput.userId,
+								name: params?.name ?? '',
+								scheduleText: params?.scheduleText,
+								isCritical: params?.isCritical
+							});
+						} else if (action.action === 'create_appointment') {
+							result = await rememberAgent.createAppointment({
+								userId: validatedInput.userId,
+								title: params?.title ?? '',
+								appointmentTime: params?.appointmentTime ?? '',
+								description: params?.description,
+								location: params?.location
+							});
+						} else if (action.action === 'list_medications') {
+							result = await rememberAgent.listMedications(validatedInput.userId);
+						} else if (action.action === 'list_appointments') {
+							result = await rememberAgent.listAppointments(validatedInput.userId, params?.days);
+						} else if (action.action === 'analyze_patterns') {
+							result = await rememberAgent.analyzePatterns(
+								validatedInput.userId,
+								validatedInput.conversationHistory as Array<{
+									role: string;
+									parts?: Array<{ text: string }>;
+								}>
+							);
 						}
 						break;
 

@@ -4,6 +4,9 @@
 	import CameraReader from '$lib/components/agents/CameraReader.svelte';
 	import WriteAgent from '$lib/components/agents/WriteAgent.svelte';
 	import SayAgent from '$lib/components/agents/SayAgent.svelte';
+	import RememberAgent from '$lib/components/agents/RememberAgent.svelte';
+	import CalendarView from '$lib/components/agents/CalendarView.svelte';
+	import PatternDashboard from '$lib/components/agents/PatternDashboard.svelte';
 	import { getOrCreateUserId } from '$lib/supabase';
 	import { onMount } from 'svelte';
 
@@ -54,6 +57,18 @@
 			repeated speech.
 		</p>
 		<SayAgent />
+	</section>
+
+	<section class="remember-section" aria-labelledby="remember-for-me-heading">
+		<h2 id="remember-for-me-heading" class="section-heading">🧠 Remember-For-Me</h2>
+		<p class="section-desc">
+			Medication reminders, tasks, and appointments. Track adherence and view patterns.
+		</p>
+		<div class="remember-widgets">
+			<RememberAgent />
+			<CalendarView userId={writeAgentUserId} />
+			<PatternDashboard userId={writeAgentUserId} />
+		</div>
 	</section>
 
 	<div class="features">
@@ -116,8 +131,15 @@
 
 	.read-section,
 	.write-section,
-	.say-section {
+	.say-section,
+	.remember-section {
 		margin-top: 2.5rem;
+	}
+
+	.remember-widgets {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 1.5rem;
 	}
 
 	.section-heading {
