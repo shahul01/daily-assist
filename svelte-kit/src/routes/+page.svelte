@@ -3,6 +3,7 @@
 	import ReadAgent from '$lib/components/agents/ReadAgent.svelte';
 	import CameraReader from '$lib/components/agents/CameraReader.svelte';
 	import WriteAgent from '$lib/components/agents/WriteAgent.svelte';
+	import SayAgent from '$lib/components/agents/SayAgent.svelte';
 	import { getOrCreateUserId } from '$lib/supabase';
 	import { onMount } from 'svelte';
 
@@ -46,6 +47,15 @@
 		<WriteAgent userId={writeAgentUserId} />
 	</section>
 
+	<section class="say-section" aria-labelledby="say-it-for-me-heading">
+		<h2 id="say-it-for-me-heading" class="section-heading">🗣️ Say-It-For-Me</h2>
+		<p class="section-desc">
+			Speak for you: type or pick quick phrases, set emotion, or use emergency mode for urgent
+			repeated speech.
+		</p>
+		<SayAgent />
+	</section>
+
 	<div class="features">
 		<div class="feature">
 			<h3>📖 Read-To-Me</h3>
@@ -62,6 +72,10 @@
 			<p>Creates reminders and tracks tasks for memory disabilities</p>
 		</div>
 
+		<div class="feature">
+			<h3>🗣️ Say-It-For-Me</h3>
+			<p>Text-to-speech, quick phrases, and emergency mode for speech disabilities</p>
+		</div>
 		<div class="feature">
 			<h3>🎯 Smart Orchestration</h3>
 			<p>Multiple agents work together to help you accomplish complex tasks</p>
@@ -101,7 +115,8 @@
 	}
 
 	.read-section,
-	.write-section {
+	.write-section,
+	.say-section {
 		margin-top: 2.5rem;
 	}
 

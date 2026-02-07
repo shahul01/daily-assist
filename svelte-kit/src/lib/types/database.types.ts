@@ -452,6 +452,58 @@ export interface Database {
 				};
 				Update: Partial<Database['public']['Tables']['draft_history']['Insert']>;
 			};
+			quick_phrases: {
+				Row: {
+					id: string;
+					user_id: string;
+					phrase: string;
+					category: string | null;
+					emotion: string | null;
+					language: string | null;
+					is_default: boolean;
+					usage_count: number;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					phrase: string;
+					category?: string | null;
+					emotion?: string | null;
+					language?: string | null;
+					is_default?: boolean;
+					usage_count?: number;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['quick_phrases']['Insert']>;
+			};
+			voice_preferences: {
+				Row: {
+					user_id: string;
+					pitch: number;
+					rate: number;
+					volume: number;
+					language: string;
+					voice_uri: string | null;
+					emergency_volume: number;
+					emergency_rate: number;
+					updated_at: string;
+				};
+				Insert: {
+					user_id: string;
+					pitch?: number;
+					rate?: number;
+					volume?: number;
+					language?: string;
+					voice_uri?: string | null;
+					emergency_volume?: number;
+					emergency_rate?: number;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['voice_preferences']['Insert']>;
+			};
 		};
 		Functions: {
 			match_memories: {
