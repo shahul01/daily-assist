@@ -1,14 +1,15 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import AgentPanel from '$lib/components/agents/AgentPanel.svelte';
 	import ReadAgent from '$lib/components/agents/ReadAgent.svelte';
 	import CameraReader from '$lib/components/agents/CameraReader.svelte';
 	import WriteAgent from '$lib/components/agents/WriteAgent.svelte';
 	import SayAgent from '$lib/components/agents/SayAgent.svelte';
 	import RememberAgent from '$lib/components/agents/RememberAgent.svelte';
+	import SeeAgent from '$lib/components/agents/SeeAgent.svelte';
 	import CalendarView from '$lib/components/agents/CalendarView.svelte';
 	import PatternDashboard from '$lib/components/agents/PatternDashboard.svelte';
 	import { getOrCreateUserId } from '$lib/supabase';
-	import { onMount } from 'svelte';
 
 	let writeAgentUserId = $state<string>('');
 	onMount(() => {
@@ -59,6 +60,15 @@
 		<SayAgent />
 	</section>
 
+	<section class="see-section" aria-labelledby="see-for-me-heading">
+		<h2 id="see-for-me-heading" class="section-heading">👁️ See-For-Me</h2>
+		<p class="section-desc">
+			Real-time vision: scene description, object detection, danger alerts, and navigation help.
+			Voice modes: auto, smart alerts, or manual.
+		</p>
+		<SeeAgent userId={writeAgentUserId} />
+	</section>
+
 	<section class="remember-section" aria-labelledby="remember-for-me-heading">
 		<h2 id="remember-for-me-heading" class="section-heading">🧠 Remember-For-Me</h2>
 		<p class="section-desc">
@@ -90,6 +100,13 @@
 		<div class="feature">
 			<h3>🗣️ Say-It-For-Me</h3>
 			<p>Text-to-speech, quick phrases, and emergency mode for speech disabilities</p>
+		</div>
+		<div class="feature">
+			<h3>👁️ See-For-Me</h3>
+			<p>
+				Real-time camera vision: scene description, dangers, and navigation for blind and low-vision
+				users
+			</p>
 		</div>
 		<div class="feature">
 			<h3>🎯 Smart Orchestration</h3>
@@ -132,6 +149,7 @@
 	.read-section,
 	.write-section,
 	.say-section,
+	.see-section,
 	.remember-section {
 		margin-top: 2.5rem;
 	}

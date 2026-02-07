@@ -1,7 +1,13 @@
 /**
- * Camera access and frame capture for Read-To-Me real-time text detection.
+ * Camera access and frame capture for Read-To-Me and See-For-Me real-time vision.
  * Uses MediaStream API and Canvas for snapshots.
  */
+
+/** Target FPS for See-For-Me agent (10 FPS real-time vision). */
+export const SEE_AGENT_TARGET_FPS = 10;
+
+/** Default JPEG quality for vision (balance size vs. accuracy). */
+export const SEE_AGENT_JPEG_QUALITY = 0.75;
 
 export interface CameraResult {
 	stream: MediaStream;
@@ -36,6 +42,7 @@ export async function startCamera(
 	 * Returns null if video not ready or capture fails.
 	 */
 	function captureFrame(mimeType: string = 'image/jpeg', quality: number = 0.8): string | null {
+		// Use SEE_AGENT_JPEG_QUALITY (0.75) when calling from See-For-Me for smaller payloads
 		if (video.readyState < 2) return null;
 		const w = video.videoWidth;
 		const h = video.videoHeight;

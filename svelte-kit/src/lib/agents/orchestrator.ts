@@ -120,16 +120,17 @@ export class Orchestrator {
 			console.warn('[orchestrator] memory summary failed', e);
 		}
 
-		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents.
+		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
 2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
 3. Find-It Agent: Search, navigate, locate files (NOT IMPLEMENTED YET)
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication (NOT IMPLEMENTED YET)
+6. See-For-Me Agent: Real-time vision—scene description, object detection, danger detection, navigation. Use for: "What do you see?", "Is it safe?", "What's ahead?", "Read that sign". User must use the See-For-Me panel with camera; you can direct them to it.
 
 Your job: Decide which agent(s) to use based on user intent.
-Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me
+Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me, See-For-Me (direct user to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
 {
@@ -245,6 +246,13 @@ What agents should I use? What actions should they take?`,
 						}
 						break;
 
+					case 'See-For-Me':
+						result = {
+							message:
+								'Use the See-For-Me panel to start your camera for real-time scene description, object detection, and danger alerts. Open the See-For-Me section and tap Start.'
+						};
+						break;
+
 					default:
 						result = { error: `Agent ${action.agent} not implemented yet` };
 				}
@@ -350,17 +358,18 @@ Provide a natural, helpful response to the user explaining what was done.`,
 			// ignore
 		}
 
-		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating 5 AI agents.
+		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context:\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
 2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
 3. Find-It Agent: Search, navigate, locate files (NOT IMPLEMENTED YET)
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication (NOT IMPLEMENTED YET)
+6. See-For-Me Agent: Real-time vision—scene description, dangers, navigation. Use for "What do you see?", "Is it safe?". Direct user to the See-For-Me panel.
 
 Your job: Decide which agent(s) to use based on user intent.
 
-Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me
+Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me, See-For-Me (direct user to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
 {
@@ -470,6 +479,13 @@ What agents should I use? What actions should they take?`,
 								)
 							};
 						}
+						break;
+
+					case 'See-For-Me':
+						result = {
+							message:
+								'Use the See-For-Me panel to start your camera for real-time scene description, object detection, and danger alerts. Open the See-For-Me section and tap Start.'
+						};
 						break;
 
 					default:
