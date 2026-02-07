@@ -100,11 +100,35 @@ export function stopSpeaking(): void {
 }
 
 /**
+ * Pause current speech (Tier 2). No-op if not speaking.
+ */
+export function pauseSpeaking(): void {
+	const synth = getSpeechSynth();
+	if (synth?.speaking) synth.pause();
+}
+
+/**
+ * Resume paused speech (Tier 2).
+ */
+export function resumeSpeaking(): void {
+	const synth = getSpeechSynth();
+	if (synth?.paused) synth.resume();
+}
+
+/**
  * Whether speech is currently playing.
  */
 export function isSpeaking(): boolean {
 	const synth = getSpeechSynth();
 	return synth?.speaking ?? false;
+}
+
+/**
+ * Whether speech is paused (Tier 2).
+ */
+export function isPaused(): boolean {
+	const synth = getSpeechSynth();
+	return synth?.paused ?? false;
 }
 
 /**

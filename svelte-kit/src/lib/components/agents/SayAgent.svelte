@@ -1,13 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import {
 		speakFromPayload,
 		speakRepeatedly,
 		stopSpeaking,
+		pauseSpeaking,
+		resumeSpeaking,
 		isSpeaking,
+		isPaused,
 		whenVoicesReady
 	} from '$lib/utils/speech';
+	import { SUPPORTED_LANGUAGES } from '$lib/agents/sayAgent';
 	import { getOrCreateUserId } from '$lib/supabase';
-	import { onMount } from 'svelte';
 
 	type Emotion =
 		| 'happy'
@@ -29,6 +33,16 @@
 		language: string | null;
 		is_default: boolean;
 		usage_count: number;
+	}
+
+	interface VoiceProfileRow {
+		id: string;
+		name: string;
+		pitch: number;
+		rate: number;
+		volume: number;
+		language: string;
+		voice_uri: string | null;
 	}
 
 	/** Default quick phrases when user has none (client-side fallback) */
@@ -58,6 +72,14 @@
 	let selectedLang = $state('en-US');
 	let voiceUri = $state('');
 	let emergencyMessage = $state('I need help immediately');
+	// Tier 2
+	let voiceProfiles = $state<VoiceProfileRow[]>([]);
+	let newProfileName = $state('');
+	let selectedProfileId = $state('');
+	// Tier 3
+	let cloneReady = $state(false);
+	let activeSessionId = $state<string | null>(null);
+	let sessionTurns = $state<{ id: string; speaker: string; text: string | null }[]>([]);
 
 	onMount(() => {
 		whenVoicesReady();
@@ -66,6 +88,8 @@
 			if (id) {
 				loadQuickPhrases(id);
 				loadVoicePreferences(id);
+				loadVoiceProfiles(id);
+				loadCloneStatus(id);
 			}
 		});
 	});
@@ -121,6 +145,184 @@
 					}
 				})
 			});
+		} catch {
+			// ignore
+		}
+	}
+
+	async function loadVoiceProfiles(uid: string) {
+		try {
+			const res = await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ loadVoiceProfiles: { userId: uid } })
+			});
+			const data = await res.json();
+			if (res.ok && Array.isArray(data.profiles)) voiceProfiles = data.profiles;
+		} catch {
+			// keep default
+		}
+	}
+
+	async function applyVoiceProfile(profileId: string) {
+		if (!userId) return;
+		try {
+			const res = await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ getVoiceProfile: { profileId, userId } })
+			});
+			const data = await res.json();
+			if (res.ok && data && data.pitch != null) {
+				pitch = data.pitch;
+				rate = data.rate;
+				volume = data.volume;
+				if (data.language) selectedLang = data.language;
+				voiceUri = data.voice_uri ?? '';
+				saveVoicePreferences();
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	async function saveCurrentAsProfile() {
+		const name = newProfileName.trim() || 'My profile';
+		if (!userId) return;
+		try {
+			const res = await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					saveVoiceProfile: {
+						userId,
+						name,
+						pitch,
+						rate,
+						volume,
+						language: selectedLang,
+						voiceUri: voiceUri || undefined
+					}
+				})
+			});
+			const data = await res.json();
+			if (res.ok && data) {
+				voiceProfiles = [data, ...voiceProfiles];
+				newProfileName = '';
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	async function deleteVoiceProfileById(profileId: string) {
+		if (!userId) return;
+		try {
+			await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ deleteVoiceProfile: { profileId, userId } })
+			});
+			voiceProfiles = voiceProfiles.filter((p) => p.id !== profileId);
+			if (selectedProfileId === profileId) selectedProfileId = '';
+		} catch {
+			// ignore
+		}
+	}
+
+	async function loadCloneStatus(uid: string) {
+		try {
+			const res = await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ getVoiceCloneStatus: { userId: uid } })
+			});
+			const data = await res.json();
+			if (res.ok && data) cloneReady = !!data.ready;
+		} catch {
+			cloneReady = false;
+		}
+	}
+
+	async function handleSpeakWithClone() {
+		const text = textInput.trim() || 'Hello';
+		if (!userId) return;
+		error = '';
+		loading = true;
+		try {
+			const res = await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ speakWithClone: { text, userId } })
+			});
+			const data = await res.json();
+			if (res.ok && data.audioBase64) {
+				const audio = new Audio(
+					'data:' + (data.contentType || 'audio/mpeg') + ';base64,' + data.audioBase64
+				);
+				await audio.play();
+			} else if (data.error) error = data.error;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Clone speak failed';
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function startConversation() {
+		if (!userId) return;
+		try {
+			const res = await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ conversationStart: { userId } })
+			});
+			const data = await res.json();
+			if (res.ok && data?.id) {
+				activeSessionId = data.id;
+				sessionTurns = [];
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	async function endConversation() {
+		if (!activeSessionId || !userId) return;
+		try {
+			await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					conversationEnd: { sessionId: activeSessionId, userId }
+				})
+			});
+			activeSessionId = null;
+			sessionTurns = [];
+		} catch {
+			// ignore
+		}
+	}
+
+	async function loadSessionHistory() {
+		if (!activeSessionId || !userId) return;
+		try {
+			const res = await fetch('/api/agents/say', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					conversationHistory: { sessionId: activeSessionId, userId }
+				})
+			});
+			const data = await res.json();
+			if (res.ok && data?.turns)
+				sessionTurns = data.turns.map(
+					(t: { id: string; speaker: string; text: string | null }) => ({
+						id: t.id,
+						speaker: t.speaker,
+						text: t.text
+					})
+				);
 		} catch {
 			// ignore
 		}
@@ -354,7 +556,15 @@
 			>
 				{loading ? 'Speaking…' : 'Speak'}
 			</button>
-			{#if isSpeaking()}
+			{#if isSpeaking() || isPaused()}
+				<button
+					type="button"
+					onclick={isPaused() ? resumeSpeaking : pauseSpeaking}
+					class="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+					aria-label={isPaused() ? 'Resume speaking' : 'Pause speaking'}
+				>
+					{isPaused() ? 'Resume' : 'Pause'}
+				</button>
 				<button
 					type="button"
 					onclick={handleStopSpeaking}
@@ -471,17 +681,124 @@
 					class="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
 					aria-label="Language"
 				>
-					<option value="en-US">English (US)</option>
-					<option value="en-GB">English (UK)</option>
-					<option value="es-ES">Spanish</option>
-					<option value="fr-FR">French</option>
-					<option value="de-DE">German</option>
-					<option value="hi-IN">Hindi</option>
-					<option value="ar-SA">Arabic</option>
+					{#each SUPPORTED_LANGUAGES as lang (lang.code)}
+						<option value={lang.code}>{lang.label}</option>
+					{/each}
 				</select>
 			</label>
 		</div>
+		<!-- Tier 2: Voice profiles -->
+		{#if userId && voiceProfiles.length >= 0}
+			<div
+				class="mt-2 flex flex-wrap items-center gap-2 border-t border-neutral-200 pt-2 dark:border-neutral-600"
+			>
+				<label for="say-agent-voice-profile" class="text-sm text-neutral-600 dark:text-neutral-400"
+					>Profile</label
+				>
+				<select
+					id="say-agent-voice-profile"
+					bind:value={selectedProfileId}
+					class="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+					aria-label="Voice profile"
+					onchange={(e) => {
+						const id = (e.currentTarget as HTMLSelectElement).value;
+						if (id) applyVoiceProfile(id);
+					}}
+				>
+					<option value="">— Select —</option>
+					{#each voiceProfiles as profile (profile.id)}
+						<option value={profile.id}>{profile.name}</option>
+					{/each}
+				</select>
+				{#if selectedProfileId}
+					<button
+						type="button"
+						onclick={() => deleteVoiceProfileById(selectedProfileId)}
+						class="rounded border border-red-300 bg-red-50 px-2 py-1 text-sm dark:border-red-800 dark:bg-red-900/30"
+						aria-label="Delete selected profile"
+					>
+						Delete profile
+					</button>
+				{/if}
+				<input
+					type="text"
+					bind:value={newProfileName}
+					placeholder="Profile name"
+					class="w-28 rounded border border-neutral-300 px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+					aria-label="New profile name"
+				/>
+				<button
+					type="button"
+					onclick={saveCurrentAsProfile}
+					class="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+				>
+					Save as profile
+				</button>
+			</div>
+		{/if}
 	</div>
+
+	<!-- Tier 3: Voice clone -->
+	{#if userId}
+		<div
+			class="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800"
+		>
+			<h3 class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Voice clone</h3>
+			<p class="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
+				{cloneReady
+					? 'Clone ready. Speak with cloned or default voice.'
+					: 'Set ELEVENLABS_API_KEY for clone/default voice.'}
+			</p>
+			<button
+				type="button"
+				onclick={handleSpeakWithClone}
+				disabled={loading}
+				class="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+			>
+				Speak with clone
+			</button>
+		</div>
+
+		<!-- Tier 3: Conversation mode -->
+		<div
+			class="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800"
+		>
+			<h3 class="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">Conversation</h3>
+			{#if !activeSessionId}
+				<button
+					type="button"
+					onclick={startConversation}
+					class="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200"
+				>
+					Start conversation
+				</button>
+			{:else}
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="button"
+						onclick={loadSessionHistory}
+						class="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-800"
+					>
+						Refresh history
+					</button>
+					<button
+						type="button"
+						onclick={endConversation}
+						class="rounded border border-red-300 bg-red-50 px-2 py-1 text-sm dark:border-red-800 dark:bg-red-900/30"
+					>
+						End conversation
+					</button>
+				</div>
+				{#if sessionTurns.length > 0}
+					<ul class="mt-2 max-h-32 overflow-y-auto text-xs text-neutral-600 dark:text-neutral-400">
+						{#each sessionTurns as turn (turn.id)}
+							<li><strong>{turn.speaker}:</strong> {turn.text ?? ''}</li>
+						{/each}
+					</ul>
+				{/if}
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Add custom phrase -->
 	{#if userId}

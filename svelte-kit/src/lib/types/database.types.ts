@@ -504,6 +504,100 @@ export interface Database {
 				};
 				Update: Partial<Database['public']['Tables']['voice_preferences']['Insert']>;
 			};
+			voice_profiles: {
+				Row: {
+					id: string;
+					user_id: string;
+					name: string;
+					pitch: number;
+					rate: number;
+					volume: number;
+					language: string;
+					voice_uri: string | null;
+					is_active: boolean;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					name: string;
+					pitch?: number;
+					rate?: number;
+					volume?: number;
+					language?: string;
+					voice_uri?: string | null;
+					is_active?: boolean;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['voice_profiles']['Insert']>;
+			};
+			voice_clones: {
+				Row: {
+					user_id: string;
+					clone_id: string | null;
+					provider: string | null;
+					sample_duration_seconds: number | null;
+					training_status: string | null;
+					created_at: string;
+					trained_at: string | null;
+				};
+				Insert: {
+					user_id: string;
+					clone_id?: string | null;
+					provider?: string | null;
+					sample_duration_seconds?: number | null;
+					training_status?: string | null;
+					created_at?: string;
+					trained_at?: string | null;
+				};
+				Update: Partial<Database['public']['Tables']['voice_clones']['Insert']>;
+			};
+			conversation_sessions: {
+				Row: {
+					id: string;
+					user_id: string;
+					started_at: string;
+					ended_at: string | null;
+					duration_seconds: number | null;
+					turn_count: number;
+					summary: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					started_at?: string;
+					ended_at?: string | null;
+					duration_seconds?: number | null;
+					turn_count?: number;
+					summary?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['conversation_sessions']['Insert']>;
+			};
+			conversation_turns: {
+				Row: {
+					id: string;
+					session_id: string;
+					turn_number: number;
+					speaker: string;
+					text: string | null;
+					audio_url: string | null;
+					emotion: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					session_id: string;
+					turn_number: number;
+					speaker: string;
+					text?: string | null;
+					audio_url?: string | null;
+					emotion?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['conversation_turns']['Insert']>;
+			};
 		};
 		Functions: {
 			match_memories: {
