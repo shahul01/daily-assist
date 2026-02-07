@@ -7,6 +7,7 @@
 	import SayAgent from '$lib/components/agents/SayAgent.svelte';
 	import RememberAgent from '$lib/components/agents/RememberAgent.svelte';
 	import SeeAgent from '$lib/components/agents/SeeAgent.svelte';
+	import HearAgent from '$lib/components/agents/HearAgent.svelte';
 	import CalendarView from '$lib/components/agents/CalendarView.svelte';
 	import PatternDashboard from '$lib/components/agents/PatternDashboard.svelte';
 	import { getOrCreateUserId } from '$lib/supabase';
@@ -69,6 +70,15 @@
 		<SeeAgent userId={writeAgentUserId} />
 	</section>
 
+	<section class="hear-section" aria-labelledby="hear-for-me-heading">
+		<h2 id="hear-for-me-heading" class="section-heading">👂 Hear-For-Me</h2>
+		<p class="section-desc">
+			Real-time audio: live transcription, sound detection (doorbell, alarm, crying), speaker
+			identification, and sentiment. Speak alerts on or off.
+		</p>
+		<HearAgent userId={writeAgentUserId} />
+	</section>
+
 	<section class="remember-section" aria-labelledby="remember-for-me-heading">
 		<h2 id="remember-for-me-heading" class="section-heading">🧠 Remember-For-Me</h2>
 		<p class="section-desc">
@@ -106,6 +116,13 @@
 			<p>
 				Real-time camera vision: scene description, dangers, and navigation for blind and low-vision
 				users
+			</p>
+		</div>
+		<div class="feature">
+			<h3>👂 Hear-For-Me</h3>
+			<p>
+				Real-time audio: transcription, sound detection, speaker ID, and sentiment for deaf and
+				hard-of-hearing users
 			</p>
 		</div>
 		<div class="feature">
@@ -150,6 +167,7 @@
 	.write-section,
 	.say-section,
 	.see-section,
+	.hear-section,
 	.remember-section {
 		margin-top: 2.5rem;
 	}

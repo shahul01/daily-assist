@@ -307,3 +307,33 @@ export async function callGeminiWithInlineData(
 	]);
 	return result.response.text();
 }
+
+/** Supported audio MIME types for Gemini. */
+const AUDIO_MIME_TYPES = ['audio/wav', 'audio/mpeg', 'audio/webm', 'audio/ogg'] as const;
+
+/**
+ * Call Gemini with audio data (Hear-For-Me agent).
+ * Uses inline data; thinking level low for real-time.
+ */
+export async function callGeminiWithAudio(
+	prompt: string,
+	audioBase64: string,
+	mimeType: string = 'audio/webm',
+	options: { thinkingLevel?: 'low' | 'medium'; model?: string } = {}
+): Promise<string> {
+	const normalized = mimeType.split(';')[0];
+	const allowed = AUDIO_MIME_TYPES.some(
+		(m) => m === normalized || mimeType.startsWith(m.split('/')[0])
+	);
+	if (!allowed) {
+		// Default to webm if unknown
+		return callGeminiWithInlineData(prompt, audioBase64, 'audio/webm', {
+			thinkingLevel: options.thinkingLevel ?? 'low',
+			model: options.model ?? 'gemini-3-flash-preview'
+		});
+	}
+	return callGeminiWithInlineData(prompt, audioBase64, mimeType, {
+		thinkingLevel: options.thinkingLevel ?? 'low',
+		model: options.model ?? 'gemini-3-flash-preview'
+	});
+}
