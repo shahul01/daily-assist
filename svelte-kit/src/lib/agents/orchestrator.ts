@@ -128,9 +128,10 @@ ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication (NOT IMPLEMENTED YET)
 6. See-For-Me Agent: Real-time vision—scene description, object detection, danger detection, navigation. Use for: "What do you see?", "Is it safe?", "What's ahead?", "Read that sign". User must use the See-For-Me panel with camera; you can direct them to it.
+7. Hear-For-Me Agent: Real-time audio transcription, sound detection (doorbell, alarm, crying), speaker identification. Use for: "What's that sound?", "Who's speaking?", "Transcribe this conversation". User must use the Hear-For-Me panel with microphone.
 
 Your job: Decide which agent(s) to use based on user intent.
-Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me, See-For-Me (direct user to panel)
+Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me, See-For-Me (direct user to panel), Hear-For-Me (direct user to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
 {
@@ -253,6 +254,13 @@ What agents should I use? What actions should they take?`,
 						};
 						break;
 
+					case 'Hear-For-Me':
+						result = {
+							message:
+								'Use the Hear-For-Me panel to start your microphone for real-time transcription, sound detection (doorbell, alarm, etc.), and speaker identification. Open the Hear-For-Me section and tap Start.'
+						};
+						break;
+
 					default:
 						result = { error: `Agent ${action.agent} not implemented yet` };
 				}
@@ -366,10 +374,11 @@ ${memoryContext ? `\nUser context:\n${memoryContext}\n` : ''}
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication (NOT IMPLEMENTED YET)
 6. See-For-Me Agent: Real-time vision—scene description, dangers, navigation. Use for "What do you see?", "Is it safe?". Direct user to the See-For-Me panel.
+7. Hear-For-Me Agent: Real-time audio transcription, sound detection, speaker ID. Use for "What's that sound?", "Transcribe this". Direct user to the Hear-For-Me panel.
 
 Your job: Decide which agent(s) to use based on user intent.
 
-Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me, See-For-Me (direct user to panel)
+Available agents RIGHT NOW: Read-To-Me, Write-For-Me, Remember-For-Me, See-For-Me (direct user to panel), Hear-For-Me (direct user to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
 {
@@ -485,6 +494,13 @@ What agents should I use? What actions should they take?`,
 						result = {
 							message:
 								'Use the See-For-Me panel to start your camera for real-time scene description, object detection, and danger alerts. Open the See-For-Me section and tap Start.'
+						};
+						break;
+
+					case 'Hear-For-Me':
+						result = {
+							message:
+								'Use the Hear-For-Me panel to start your microphone for real-time transcription, sound detection, and speaker identification. Open the Hear-For-Me section and tap Start.'
 						};
 						break;
 
