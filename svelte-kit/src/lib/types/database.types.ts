@@ -7,6 +7,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type MemoryTypeEnum = 'preference' | 'goal' | 'todo' | 'event' | 'fact';
 
 export interface Database {
+	__InternalSupabase: { PostgrestVersion: '14.1' };
 	public: {
 		Tables: {
 			memories: {
@@ -750,6 +751,102 @@ export interface Database {
 					updated_at?: string;
 				};
 				Update: Partial<Database['public']['Tables']['pattern_analysis']['Insert']>;
+			};
+			character_profiles: {
+				Row: {
+					id: string;
+					user_id: string;
+					name: string;
+					description: string | null;
+					reference_images: Json;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					name: string;
+					description?: string | null;
+					reference_images?: Json;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					user_id?: string;
+					name?: string;
+					description?: string | null;
+					reference_images?: Json;
+					created_at?: string;
+				};
+				Relationships: [];
+			};
+			create_agent_generations: {
+				Row: {
+					id: string;
+					user_id: string;
+					type: string;
+					prompt: string;
+					model: string;
+					result_storage_path: string | null;
+					result_mime_type: string | null;
+					metadata: Json | null;
+					character_profile_id: string | null;
+					expires_at: string | null;
+					deleted: boolean;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					type: string;
+					prompt: string;
+					model: string;
+					result_storage_path?: string | null;
+					result_mime_type?: string | null;
+					metadata?: Json | null;
+					character_profile_id?: string | null;
+					expires_at?: string | null;
+					deleted?: boolean;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					user_id?: string;
+					type?: string;
+					prompt?: string;
+					model?: string;
+					result_storage_path?: string | null;
+					result_mime_type?: string | null;
+					metadata?: Json | null;
+					character_profile_id?: string | null;
+					expires_at?: string | null;
+					deleted?: boolean;
+					created_at?: string;
+				};
+				Relationships: [];
+			};
+			media_deletion_notifications: {
+				Row: {
+					id: string;
+					generation_id: string;
+					notification_type: string;
+					sent_at: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					generation_id: string;
+					notification_type: string;
+					sent_at?: string | null;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					generation_id?: string;
+					notification_type?: string;
+					sent_at?: string | null;
+					created_at?: string;
+				};
+				Relationships: [];
 			};
 		};
 		Functions: {
