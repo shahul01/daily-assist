@@ -8,6 +8,7 @@
 	import RememberAgent from '$lib/components/agents/RememberAgent.svelte';
 	import SeeAgent from '$lib/components/agents/SeeAgent.svelte';
 	import HearAgent from '$lib/components/agents/HearAgent.svelte';
+	import CreateAgent from '$lib/components/agents/CreateAgent.svelte';
 	import CalendarView from '$lib/components/agents/CalendarView.svelte';
 	import PatternDashboard from '$lib/components/agents/PatternDashboard.svelte';
 	import { getOrCreateUserId } from '$lib/supabase';
@@ -50,6 +51,15 @@
 			Compose emails, correct grammar, adjust tone. Use voice dictation or choose from templates.
 		</p>
 		<WriteAgent userId={writeAgentUserId} />
+	</section>
+
+	<section class="create-section" aria-labelledby="create-for-me-heading">
+		<h2 id="create-for-me-heading" class="section-heading">🎨 Create-For-Me</h2>
+		<p class="section-desc">
+			Generate images (up to 4K) and short videos from prompts. Use character profiles for
+			consistency. Media expires after 3 days.
+		</p>
+		<CreateAgent userId={writeAgentUserId} />
 	</section>
 
 	<section class="say-section" aria-labelledby="say-it-for-me-heading">
@@ -100,6 +110,11 @@
 		<div class="feature">
 			<h3>✍️ Write-For-Me</h3>
 			<p>Drafts emails, corrects grammar, and adjusts tone for motor or cognitive support</p>
+		</div>
+
+		<div class="feature">
+			<h3>🎨 Create-For-Me</h3>
+			<p>Generate images and videos from text; character profiles for consistent visuals</p>
 		</div>
 
 		<div class="feature">
@@ -165,6 +180,7 @@
 
 	.read-section,
 	.write-section,
+	.create-section,
 	.say-section,
 	.see-section,
 	.hear-section,

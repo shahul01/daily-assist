@@ -337,3 +337,273 @@ export async function callGeminiWithAudio(
 		model: options.model ?? 'gemini-3-flash-preview'
 	});
 }
+
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+function getApiKey(): string {
+	const key = import.meta.env.VITE_GEMINI_API_KEY;
+	if (!key) throw new Error('VITE_GEMINI_API_KEY is not set');
+	return key;
+}
+
+export interface GenerateImageOptions {
+	resolution?: '1K' | '2K' | '4K';
+	aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+	referenceImages?: Array<{ imageBytes: string; mimeType: string }>;
+	negativePrompt?: string;
+}
+
+export interface GenerateImageResult {
+	imageBytes: string;
+	mimeType: string;
+}
+
+/**
+ * Generate image using Gemini 3 Pro Image (Nano Banana Pro).
+ * Uses REST API for responseModalities: IMAGE.
+ */
+export async function generateImageWithGemini(
+	prompt: string,
+	options: GenerateImageOptions = {}
+): Promise<GenerateImageResult> {
+	const { resolution = '2K', aspectRatio = '1:1', referenceImages, negativePrompt } = options;
+	const key = getApiKey();
+
+	const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+	if (referenceImages?.length) {
+		for (const ref of referenceImages) {
+			parts.push({
+				inlineData: {
+					mimeType: ref.mimeType,
+					data: normalizeBase64(ref.imageBytes)
+				}
+			});
+		}
+	}
+	parts.push({ text: prompt });
+
+	const body: Record<string, unknown> = {
+		contents: [{ role: 'user', parts }],
+		generationConfig: {
+			responseModalities: ['IMAGE'],
+			responseMimeType: 'image/png',
+			aspectRatio,
+			// imageSize only for Standard/Ultra; 1K/2K supported
+			...(resolution !== '4K' && { imageSize: resolution })
+		}
+	};
+	if (negativePrompt) {
+		(body.generationConfig as Record<string, unknown>).negativePrompt = negativePrompt;
+	}
+
+	const res = await fetch(
+		`${GEMINI_API_BASE}/models/gemini-3-pro-image-preview:generateContent?key=${key}`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		}
+	);
+	if (!res.ok) {
+		const err = await res.text();
+		throw new Error(`Gemini image generation failed: ${res.status} ${err}`);
+	}
+	const data = (await res.json()) as {
+		candidates?: Array<{
+			content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> };
+		}>;
+	};
+	const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+	if (!part?.inlineData?.data) {
+		throw new Error('No image data in Gemini response');
+	}
+	return {
+		imageBytes: part.inlineData.data,
+		mimeType: part.inlineData.mimeType ?? 'image/png'
+	};
+}
+
+export interface GenerateVideoOptions {
+	durationSeconds?: 4 | 6 | 8;
+	resolution?: '720p' | '1080p' | '4K';
+	aspectRatio?: '16:9' | '9:16';
+	startImage?: { imageBytes: string; mimeType: string };
+	endImage?: { imageBytes: string; mimeType: string };
+	referenceImages?: Array<{
+		imageBytes: string;
+		mimeType: string;
+		referenceType?: 'asset' | 'style';
+	}>;
+	negativePrompt?: string;
+}
+
+export interface GenerateVideoResult {
+	videoBytes: string;
+	mimeType: string;
+}
+
+const VEO_POLL_INTERVAL_MS = 10_000;
+const VEO_MAX_POLL_ATTEMPTS = 24;
+
+/**
+ * Generate video using Veo 3.1 (long-running operation, poll until done).
+ */
+export async function generateVideoWithVeo(
+	prompt: string,
+	options: GenerateVideoOptions = {}
+): Promise<GenerateVideoResult> {
+	const {
+		durationSeconds = 8,
+		resolution = '720p',
+		aspectRatio = '16:9',
+		startImage,
+		endImage,
+		referenceImages,
+		negativePrompt
+	} = options;
+	const key = getApiKey();
+
+	const instances: Array<Record<string, unknown>> = [{ prompt }];
+	if (startImage) {
+		(instances[0] as Record<string, unknown>).image = {
+			bytesBase64Encoded: normalizeBase64(startImage.imageBytes),
+			mimeType: startImage.mimeType
+		};
+	}
+	if (endImage && startImage) {
+		(instances[0] as Record<string, unknown>).lastFrame = {
+			bytesBase64Encoded: normalizeBase64(endImage.imageBytes),
+			mimeType: endImage.mimeType
+		};
+	}
+
+	const parameters: Record<string, unknown> = {
+		aspectRatio,
+		resolution,
+		sampleCount: 1,
+		durationSeconds: String(durationSeconds)
+	};
+	if (negativePrompt) parameters.negativePrompt = negativePrompt;
+	if (referenceImages?.length) {
+		parameters.referenceImages = referenceImages.map((r) => ({
+			image: { bytesBase64Encoded: normalizeBase64(r.imageBytes), mimeType: r.mimeType },
+			referenceType: r.referenceType ?? 'asset'
+		}));
+	}
+
+	const startRes = await fetch(
+		`${GEMINI_API_BASE}/models/veo-3.1-generate-preview:predictLongRunning?key=${key}`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ instances, parameters })
+		}
+	);
+	if (!startRes.ok) {
+		const err = await startRes.text();
+		throw new Error(`Veo start failed: ${startRes.status} ${err}`);
+	}
+	const startData = (await startRes.json()) as { name?: string };
+	const opName = startData.name;
+	if (!opName) throw new Error('No operation name in Veo response');
+
+	for (let i = 0; i < VEO_MAX_POLL_ATTEMPTS; i++) {
+		await new Promise((r) => setTimeout(r, VEO_POLL_INTERVAL_MS));
+		const pollRes = await fetch(`${GEMINI_API_BASE}/${opName}?key=${key}`);
+		if (!pollRes.ok) throw new Error(`Veo poll failed: ${pollRes.status}`);
+		const pollData = (await pollRes.json()) as {
+			done?: boolean;
+			response?: {
+				generateVideoResponse?: {
+					generatedSamples?: Array<{ video?: { uri?: string; bytesBase64Encoded?: string } }>;
+				};
+			};
+			error?: { message?: string };
+		};
+		if (pollData.error) throw new Error(pollData.error.message ?? 'Veo operation error');
+		if (!pollData.done) continue;
+		const samples = pollData.response?.generateVideoResponse?.generatedSamples;
+		const video = samples?.[0]?.video;
+		if (video?.bytesBase64Encoded) {
+			return { videoBytes: video.bytesBase64Encoded, mimeType: 'video/mp4' };
+		}
+		if (video?.uri) {
+			const downRes = await fetch(`${video.uri}?key=${key}`);
+			if (!downRes.ok) throw new Error('Failed to download generated video');
+			const buf = await downRes.arrayBuffer();
+			const b64 = Buffer.from(buf).toString('base64');
+			return { videoBytes: b64, mimeType: 'video/mp4' };
+		}
+		throw new Error('No video in Veo response');
+	}
+	throw new Error('Veo generation timed out');
+}
+
+/**
+ * Extend existing Veo-generated video by 7 seconds.
+ */
+export async function extendVideoWithVeo(
+	existingVideoBase64: string,
+	extensionPrompt: string,
+	options: { resolution?: '720p'; aspectRatio?: '16:9' | '9:16' } = {}
+): Promise<GenerateVideoResult> {
+	const { resolution = '720p', aspectRatio = '16:9' } = options;
+	const key = getApiKey();
+
+	const instances = [
+		{
+			prompt: extensionPrompt,
+			video: {
+				bytesBase64Encoded: normalizeBase64(existingVideoBase64),
+				mimeType: 'video/mp4'
+			}
+		}
+	];
+	const parameters = { aspectRatio, resolution, sampleCount: 1 };
+
+	const startRes = await fetch(
+		`${GEMINI_API_BASE}/models/veo-3.1-generate-preview:predictLongRunning?key=${key}`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ instances, parameters })
+		}
+	);
+	if (!startRes.ok) {
+		const err = await startRes.text();
+		throw new Error(`Veo extend start failed: ${startRes.status} ${err}`);
+	}
+	const startData = (await startRes.json()) as { name?: string };
+	const opName = startData.name;
+	if (!opName) throw new Error('No operation name in Veo extend response');
+
+	for (let i = 0; i < VEO_MAX_POLL_ATTEMPTS; i++) {
+		await new Promise((r) => setTimeout(r, VEO_POLL_INTERVAL_MS));
+		const pollRes = await fetch(`${GEMINI_API_BASE}/${opName}?key=${key}`);
+		if (!pollRes.ok) throw new Error(`Veo extend poll failed: ${pollRes.status}`);
+		const pollData = (await pollRes.json()) as {
+			done?: boolean;
+			response?: {
+				generateVideoResponse?: {
+					generatedSamples?: Array<{ video?: { uri?: string; bytesBase64Encoded?: string } }>;
+				};
+			};
+			error?: { message?: string };
+		};
+		if (pollData.error) throw new Error(pollData.error.message ?? 'Veo extend error');
+		if (!pollData.done) continue;
+		const samples = pollData.response?.generateVideoResponse?.generatedSamples;
+		const video = samples?.[0]?.video;
+		if (video?.bytesBase64Encoded) {
+			return { videoBytes: video.bytesBase64Encoded, mimeType: 'video/mp4' };
+		}
+		if (video?.uri) {
+			const downRes = await fetch(`${video.uri}?key=${key}`);
+			if (!downRes.ok) throw new Error('Failed to download extended video');
+			const buf = await downRes.arrayBuffer();
+			const b64 = Buffer.from(buf).toString('base64');
+			return { videoBytes: b64, mimeType: 'video/mp4' };
+		}
+		throw new Error('No video in Veo extend response');
+	}
+	throw new Error('Veo extend timed out');
+}
