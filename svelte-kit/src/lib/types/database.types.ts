@@ -598,6 +598,159 @@ export interface Database {
 				};
 				Update: Partial<Database['public']['Tables']['conversation_turns']['Insert']>;
 			};
+			medications: {
+				Row: {
+					id: string;
+					user_id: string;
+					name: string;
+					dosage: string | null;
+					schedule_times: Json;
+					frequency: string | null;
+					start_date: string | null;
+					end_date: string | null;
+					is_active: boolean;
+					notes: string | null;
+					is_critical: boolean;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					name: string;
+					dosage?: string | null;
+					schedule_times?: Json;
+					frequency?: string | null;
+					start_date?: string | null;
+					end_date?: string | null;
+					is_active?: boolean;
+					notes?: string | null;
+					is_critical?: boolean;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['medications']['Insert']>;
+			};
+			medication_logs: {
+				Row: {
+					id: string;
+					medication_id: string;
+					user_id: string;
+					scheduled_time: string;
+					taken_at: string | null;
+					status: string;
+					notes: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					medication_id: string;
+					user_id: string;
+					scheduled_time: string;
+					taken_at?: string | null;
+					status: string;
+					notes?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['medication_logs']['Insert']>;
+			};
+			appointments: {
+				Row: {
+					id: string;
+					user_id: string;
+					title: string;
+					description: string | null;
+					appointment_time: string;
+					duration_minutes: number | null;
+					location: string | null;
+					appointment_type: string | null;
+					reminder_minutes_before: number[] | null;
+					status: string;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					title: string;
+					description?: string | null;
+					appointment_time: string;
+					duration_minutes?: number | null;
+					location?: string | null;
+					appointment_type?: string | null;
+					reminder_minutes_before?: number[] | null;
+					status?: string;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['appointments']['Insert']>;
+			};
+			escalations: {
+				Row: {
+					id: string;
+					user_id: string;
+					reminder_id: string | null;
+					medication_id: string | null;
+					appointment_id: string | null;
+					escalation_type: string;
+					severity: string;
+					status: string;
+					triggered_at: string;
+					resolved_at: string | null;
+					contact_method: string | null;
+					contact_info: string | null;
+					message: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					reminder_id?: string | null;
+					medication_id?: string | null;
+					appointment_id?: string | null;
+					escalation_type: string;
+					severity: string;
+					status?: string;
+					triggered_at?: string;
+					resolved_at?: string | null;
+					contact_method?: string | null;
+					contact_info?: string | null;
+					message?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['escalations']['Insert']>;
+			};
+			pattern_analysis: {
+				Row: {
+					id: string;
+					user_id: string;
+					pattern_type: string;
+					pattern_data: Json;
+					confidence_score: number;
+					detected_at: string;
+					occurrences_count: number;
+					last_occurrence: string | null;
+					suggestion: string | null;
+					is_active: boolean;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					pattern_type: string;
+					pattern_data?: Json;
+					confidence_score?: number;
+					detected_at?: string;
+					occurrences_count?: number;
+					last_occurrence?: string | null;
+					suggestion?: string | null;
+					is_active?: boolean;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['pattern_analysis']['Insert']>;
+			};
 		};
 		Functions: {
 			match_memories: {

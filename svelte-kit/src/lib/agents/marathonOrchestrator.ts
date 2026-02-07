@@ -201,6 +201,36 @@ Output JSON only (no markdown):
 								});
 							} else if (step.action === 'list_reminders') {
 								result = await rememberAgent.listReminders(userId);
+							} else if (step.action === 'create_medication') {
+								result = await rememberAgent.createMedication({
+									userId,
+									name: (params?.name as string) ?? '',
+									scheduleText: params?.scheduleText as string | undefined,
+									isCritical: params?.isCritical as boolean | undefined
+								});
+							} else if (step.action === 'create_appointment') {
+								result = await rememberAgent.createAppointment({
+									userId,
+									title: (params?.title as string) ?? '',
+									appointmentTime: (params?.appointmentTime as string) ?? '',
+									description: params?.description as string | undefined,
+									location: params?.location as string | undefined
+								});
+							} else if (step.action === 'list_medications') {
+								result = await rememberAgent.listMedications(userId);
+							} else if (step.action === 'list_appointments') {
+								result = await rememberAgent.listAppointments(
+									userId,
+									params?.days as number | undefined
+								);
+							} else if (step.action === 'analyze_patterns') {
+								result = await rememberAgent.analyzePatterns(
+									userId,
+									(params?.conversationHistory as Array<{
+										role: string;
+										parts?: Array<{ text: string }>;
+									}>) ?? []
+								);
 							}
 							break;
 						default:
