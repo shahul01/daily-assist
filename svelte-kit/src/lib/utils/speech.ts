@@ -108,6 +108,61 @@ export function isSpeaking(): boolean {
 }
 
 /**
+ * Speak from a payload (e.g. from Say-It-For-Me API). Same as speak() with an object.
+ */
+export function speakFromPayload(payload: {
+	text: string;
+	rate?: number;
+	pitch?: number;
+	volume?: number;
+	lang?: string;
+	voiceUri?: string;
+}): void {
+	speak(payload.text, {
+		rate: payload.rate,
+		pitch: payload.pitch,
+		volume: payload.volume,
+		lang: payload.lang,
+		voiceUri: payload.voiceUri
+	});
+}
+
+/**
+ * Speak text repeatedly (e.g. emergency mode). Chains via onend; optional delay between repeats.
+ */
+export function speakRepeatedly(
+	text: string,
+	options: SpeakOptions,
+	count: number,
+	delayMs = 800
+): void {
+	const synth = getSpeechSynth();
+	if (!synth || count < 1) return;
+	synth.cancel();
+	let n = 0;
+	const next = (): void => {
+		if (n >= count) return;
+		n += 1;
+		const u = new SpeechSynthesisUtterance(text);
+		u.rate = options.rate ?? 1;
+		u.pitch = options.pitch ?? 1;
+		u.volume = options.volume ?? 1;
+		u.lang = options.lang ?? 'en-US';
+		if (options.voiceUri) {
+			const v = getSpeechSynth()
+				?.getVoices()
+				.find((x) => x.voiceURI === options.voiceUri);
+			if (v) u.voice = v;
+		}
+		u.onend = () => {
+			if (n < count) setTimeout(next, delayMs);
+		};
+		synth.speak(u);
+	};
+	next();
+}
+
+/**
  * Ensure voices are loaded (Chrome loads them async). Resolves when getVoices().length > 0 or after timeout.
  */
 export function whenVoicesReady(timeoutMs = 2000): Promise<VoiceInfo[]> {

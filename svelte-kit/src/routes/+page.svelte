@@ -2,6 +2,17 @@
 	import AgentPanel from '$lib/components/agents/AgentPanel.svelte';
 	import ReadAgent from '$lib/components/agents/ReadAgent.svelte';
 	import CameraReader from '$lib/components/agents/CameraReader.svelte';
+	import WriteAgent from '$lib/components/agents/WriteAgent.svelte';
+	import SayAgent from '$lib/components/agents/SayAgent.svelte';
+	import { getOrCreateUserId } from '$lib/supabase';
+	import { onMount } from 'svelte';
+
+	let writeAgentUserId = $state<string>('');
+	onMount(() => {
+		getOrCreateUserId().then((id) => {
+			writeAgentUserId = id ?? '';
+		});
+	});
 </script>
 
 <svelte:head>
@@ -28,6 +39,23 @@
 		</div>
 	</section>
 
+	<section class="write-section" aria-labelledby="write-for-me-heading">
+		<h2 id="write-for-me-heading" class="section-heading">✍️ Write-For-Me</h2>
+		<p class="section-desc">
+			Compose emails, correct grammar, adjust tone. Use voice dictation or choose from templates.
+		</p>
+		<WriteAgent userId={writeAgentUserId} />
+	</section>
+
+	<section class="say-section" aria-labelledby="say-it-for-me-heading">
+		<h2 id="say-it-for-me-heading" class="section-heading">🗣️ Say-It-For-Me</h2>
+		<p class="section-desc">
+			Speak for you: type or pick quick phrases, set emotion, or use emergency mode for urgent
+			repeated speech.
+		</p>
+		<SayAgent />
+	</section>
+
 	<div class="features">
 		<div class="feature">
 			<h3>📖 Read-To-Me</h3>
@@ -35,10 +63,19 @@
 		</div>
 
 		<div class="feature">
+			<h3>✍️ Write-For-Me</h3>
+			<p>Drafts emails, corrects grammar, and adjusts tone for motor or cognitive support</p>
+		</div>
+
+		<div class="feature">
 			<h3>🧠 Remember-For-Me</h3>
 			<p>Creates reminders and tracks tasks for memory disabilities</p>
 		</div>
 
+		<div class="feature">
+			<h3>🗣️ Say-It-For-Me</h3>
+			<p>Text-to-speech, quick phrases, and emergency mode for speech disabilities</p>
+		</div>
 		<div class="feature">
 			<h3>🎯 Smart Orchestration</h3>
 			<p>Multiple agents work together to help you accomplish complex tasks</p>
@@ -77,7 +114,9 @@
 		color: hsl(210 10% 70%);
 	}
 
-	.read-section {
+	.read-section,
+	.write-section,
+	.say-section {
 		margin-top: 2.5rem;
 	}
 

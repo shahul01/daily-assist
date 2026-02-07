@@ -352,6 +352,158 @@ export interface Database {
 				};
 				Update: Partial<Database['public']['Tables']['marathon_checkpoints']['Insert']>;
 			};
+			drafts: {
+				Row: {
+					id: string;
+					user_id: string;
+					title: string | null;
+					content: string;
+					draft_type: string | null;
+					metadata: Json;
+					created_at: string;
+					updated_at: string;
+					version: number;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					title?: string | null;
+					content: string;
+					draft_type?: string | null;
+					metadata?: Json;
+					created_at?: string;
+					updated_at?: string;
+					version?: number;
+				};
+				Update: Partial<Database['public']['Tables']['drafts']['Insert']>;
+			};
+			writing_templates: {
+				Row: {
+					id: string;
+					user_id: string | null;
+					name: string;
+					description: string | null;
+					template_type: string;
+					content: string;
+					variables: Json;
+					usage_count: number;
+					is_public: boolean;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id?: string | null;
+					name: string;
+					description?: string | null;
+					template_type: string;
+					content: string;
+					variables?: Json;
+					usage_count?: number;
+					is_public?: boolean;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['writing_templates']['Insert']>;
+			};
+			style_profiles: {
+				Row: {
+					id: string;
+					user_id: string;
+					vocabulary_preferences: Json;
+					sentence_patterns: Json;
+					common_phrases: string[];
+					tone_preference: string | null;
+					formality_level: number | null;
+					sample_count: number;
+					confidence_score: number;
+					last_updated: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					vocabulary_preferences?: Json;
+					sentence_patterns?: Json;
+					common_phrases?: string[];
+					tone_preference?: string | null;
+					formality_level?: number | null;
+					sample_count?: number;
+					confidence_score?: number;
+					last_updated?: string;
+				};
+				Update: Partial<Database['public']['Tables']['style_profiles']['Insert']>;
+			};
+			draft_history: {
+				Row: {
+					id: string;
+					draft_id: string;
+					version: number;
+					content: string;
+					change_summary: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					draft_id: string;
+					version: number;
+					content: string;
+					change_summary?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['draft_history']['Insert']>;
+			};
+			quick_phrases: {
+				Row: {
+					id: string;
+					user_id: string;
+					phrase: string;
+					category: string | null;
+					emotion: string | null;
+					language: string | null;
+					is_default: boolean;
+					usage_count: number;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					phrase: string;
+					category?: string | null;
+					emotion?: string | null;
+					language?: string | null;
+					is_default?: boolean;
+					usage_count?: number;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['quick_phrases']['Insert']>;
+			};
+			voice_preferences: {
+				Row: {
+					user_id: string;
+					pitch: number;
+					rate: number;
+					volume: number;
+					language: string;
+					voice_uri: string | null;
+					emergency_volume: number;
+					emergency_rate: number;
+					updated_at: string;
+				};
+				Insert: {
+					user_id: string;
+					pitch?: number;
+					rate?: number;
+					volume?: number;
+					language?: string;
+					voice_uri?: string | null;
+					emergency_volume?: number;
+					emergency_rate?: number;
+					updated_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['voice_preferences']['Insert']>;
+			};
 		};
 		Functions: {
 			match_memories: {
