@@ -13,6 +13,9 @@ export default defineConfig({
 
 	test: {
 		expect: { requireAssertions: true },
+		// Teardown: after all tests pass, Vite SSR module runner may log "transport was disconnected" or
+		// "module runner has been closed". Those are teardown race noise, not test failures. Exit code stays 0.
+		teardownTimeout: 5000,
 
 		projects: [
 			{
