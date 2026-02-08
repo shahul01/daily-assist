@@ -13,6 +13,7 @@ export default defineConfig({
 
 	test: {
 		expect: { requireAssertions: true },
+		teardownTimeout: 5000,
 
 		projects: [
 			{

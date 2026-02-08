@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+# Run check, test, lint, format, build on commit; show output but never block commit.
+cd svelte-kit || exit 0
+
+echo "=== Pre-commit: check, test, lint, format, build (commit proceeds regardless) ==="
+
+echo "\n--- check ---"
+pnpm run check || echo "[check failed]"
+
+echo "\n--- test ---"
+pnpm run test || echo "[test failed]"
+
+echo "\n--- lint ---"
+pnpm run lint || echo "[lint failed]"
+
+echo "\n--- format ---"
+pnpm run format || echo "[format failed]"
+
+echo "\n--- build ---"
+pnpm run build || echo "[build failed]"
+
+echo "\n=== Done. Commit proceeds. ==="
+exit 0

@@ -1,0 +1,10 @@
+{
+	"private": true,
+	"packageManager": "pnpm@10.26.1",
+	"scripts": {
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"husky": "^9.1.7"
+	}
+}
