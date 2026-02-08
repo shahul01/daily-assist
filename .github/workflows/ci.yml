@@ -178,6 +178,10 @@ jobs:
         run: cp .env.example .env
 
       - name: Run tests
+        env:
+          VITE_GEMINI_API_KEY: "ci-placeholder"
+          SUPABASE_URL: "https://ci-placeholder.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder"
         run: pnpm test
 
   build:
