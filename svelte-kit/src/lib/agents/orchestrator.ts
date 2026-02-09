@@ -148,6 +148,17 @@ function groupActionsIntoBatches(actions: PlannerAction[]): PlannerAction[][] {
 	return batches;
 }
 
+/** Shared agent descriptions and proactive-use rules for planner prompts. */
+const ORCHESTRATOR_AGENTS_PROMPT = `1. Read-To-Me Agent: Read text aloud, OCR images.
+2. Write-For-Me Agent: Write emails, correct grammar, adjust tone, compose letters. Use compose_email with topic and tone (e.g. formal letter to doctor).
+3. Find-It Agent: Search web or drug info. Use web_search (params: query or text) or search_drug_info (params: medicineName—can be name OR description like "white round pill", context?). For unknown medicine use search_drug_info with user's description.
+4. Remember-For-Me Agent: Create reminders, track tasks, log medications. Use create_medication to log medicine taken (even unknown—use name "Unknown medicine"); create_reminder, create_appointment, list_medications.
+5. Say-It-For-Me Agent: Text-to-speech. Use speak_message with text (e.g. safety advice, emergency guidance).
+6. See-For-Me Agent: Vision and medicine ID. identify_medicine (params: imageBase64, mimeType?) only when user HAS provided a pill/label image. Without image: tell user to capture image in next message.
+7. Hear-For-Me Agent: Real-time audio. Direct user to Hear-For-Me panel.
+
+PROACTIVE USE: When user mentions unknown/unidentified medicine, emergency, or safety concern, USE multiple agents: Remember-For-Me to log (create_medication "Unknown medicine"), Find-It search_drug_info if any details, Write-For-Me to draft doctor letter (compose_email topic "Unknown medicine incident"), Say-It-For-Me for safety message. Then in your response guide user to capture medicine image or seek help if symptoms.`;
+
 /**
  * Multi-Agent Orchestrator
  *
@@ -191,15 +202,9 @@ export class Orchestrator {
 
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
-1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files; or search the web for information. Use search_files, locate_document, list_directory, or web_search (params: query or text) for general web search.
-4. Remember-For-Me Agent: Create reminders, track tasks
-5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
-6. See-For-Me Agent: Real-time vision—scene description, object detection, danger detection, navigation. Use for: "What do you see?", "Is it safe?", "What's ahead?", "Read that sign". User must use the See-For-Me panel with camera; you can direct them to it.
-7. Hear-For-Me Agent: Real-time audio transcription, sound detection (doorbell, alarm, crying), speaker identification. Use for: "What's that sound?", "Who's speaking?", "Transcribe this conversation". User must use the Hear-For-Me panel with microphone.
+${ORCHESTRATOR_AGENTS_PROMPT}
 
-Your job: Decide which agent(s) to use based on user intent.
+Your job: Decide which agent(s) to use based on user intent. For unknown medicine or safety concerns, use multiple agents proactively (Remember, Find-It, Write, Say).
 Available agents: Read-To-Me, Write-For-Me, Remember-For-Me, Find-It, Say-It-For-Me, See-For-Me (direct to panel), Hear-For-Me (direct to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
@@ -213,7 +218,6 @@ Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no co
 
 		try {
 			const planningResult = await callGemini({
-				// TODO: set thinkingLevel as 'medium' later
 				prompt: `User request: "${validatedInput.userInput}"
 
 What agents should I use? What actions should they take?`,
@@ -474,16 +478,9 @@ Provide a natural, helpful response to the user explaining what was done.`,
 
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context:\n${memoryContext}\n` : ''}
-1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files; or search the web for information. Use search_files, locate_document, list_directory, or web_search (params: query or text) for general web search.
-4. Remember-For-Me Agent: Create reminders, track tasks
-5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
-6. See-For-Me Agent: Real-time vision—scene description, dangers, navigation. Use for "What do you see?", "Is it safe?". Direct user to the See-For-Me panel.
-7. Hear-For-Me Agent: Real-time audio transcription, sound detection, speaker ID. Use for "What's that sound?", "Transcribe this". Direct user to the Hear-For-Me panel.
+${ORCHESTRATOR_AGENTS_PROMPT}
 
-Your job: Decide which agent(s) to use based on user intent.
-
+Your job: Decide which agent(s) to use based on user intent. For unknown medicine or safety concerns, use multiple agents proactively (Remember, Find-It, Write, Say).
 Available agents: Read-To-Me, Write-For-Me, Remember-For-Me, Find-It, Say-It-For-Me, See-For-Me (direct to panel), Hear-For-Me (direct to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
@@ -775,17 +772,10 @@ Provide a natural, helpful response to the user explaining what was done.`;
 
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
-1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files; or search the web. Use search_files, locate_document, list_directory, web_search (params: query or text), or search_drug_info (params: medicineName, context?) for drug safety info.
-4. Remember-For-Me Agent: Create reminders, track tasks
-5. Say-It-For-Me Agent: Text-to-speech. Use speak_message with text and optional tone.
-6. See-For-Me Agent: Real-time vision—scene, dangers, navigation. Use identify_medicine (params: imageBase64, mimeType?) when user provides a pill/label image for medicine ID; otherwise direct user to See-For-Me panel.
-7. Hear-For-Me Agent: Real-time audio. Direct user to Hear-For-Me panel.
+${ORCHESTRATOR_AGENTS_PROMPT}
 
-Your job: Decide which agent(s) to use. If the task requires multiple steps, break into subtasks.
-Optional: add "parallelGroup" (number) to actions that can run at the same time; same number = same batch.
-Available agents: Read-To-Me, Write-For-Me, Remember-For-Me, Find-It, Say-It-For-Me, See-For-Me (direct to panel), Hear-For-Me (direct to panel).
+Your job: Decide which agent(s) to use. If the task requires multiple steps, break into subtasks. For unknown medicine (e.g. "I gulped a medicine"), plan multiple actions: log with Remember-For-Me, search_drug_info if any description, draft letter with Write-For-Me, safety message with Say-It-For-Me.
+Optional: add "parallelGroup" (number) to actions that can run together; same number = same batch.
 Output JSON only (no markdown, no code fences):
 { "agents": ["agent_name"], "reasoning": "why", "actions": [{"agent": "agent_name", "action": "action_name", "params": {...}, "parallelGroup": 1}] }`;
 

@@ -63,6 +63,8 @@ describe('Medicine orchestration (E2E)', () => {
 			expect(suggestion).toBeDefined();
 			expect(typeof (suggestion as { reasoning?: string })?.reasoning).toBe('string');
 			expect(events.some((e) => e.type === 'done')).toBe(true);
+			// Proactive orchestration: at least one agent should have been used
+			expect(events.some((e) => e.type === 'action_result')).toBe(true);
 		}
 	);
 
