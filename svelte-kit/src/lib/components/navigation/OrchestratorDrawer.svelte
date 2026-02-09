@@ -120,6 +120,7 @@
 	.drawer-content :global(.agent-panel) {
 		margin: 0;
 		max-width: none;
+		height: 100%;
 	}
 
 	@media (max-width: 640px) {

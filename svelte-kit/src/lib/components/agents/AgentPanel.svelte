@@ -390,35 +390,25 @@
 	function declineMarathon() {
 		marathonSuggestion = null;
 	}
+
+	let conversationAreaEl: HTMLDivElement | null = $state(null);
+
+	$effect(() => {
+		if (!conversationAreaEl) return;
+		void response;
+		void executionLogEntries.length;
+		void loading;
+		conversationAreaEl.scrollTo({ top: conversationAreaEl.scrollHeight, behavior: 'smooth' });
+	});
 </script>
 
 <div class="agent-panel">
-	<h2>DailyAssist - Your AI Companion</h2>
+	<header class="agent-panel-header">
+		<h2>DailyAssist - Your AI Companion</h2>
+	</header>
 
-	<form onsubmit={handleSubmit}>
-		<label for="user-input"> What can I help you with today? </label>
-
-		<textarea
-			id="user-input"
-			bind:value={userInput}
-			placeholder="Examples:
-- Read this text to me: [paste text]
-- Remind me to take medication at 8 PM
-- What are my reminders?"
-			rows="4"
-		></textarea>
-
-		<button type="submit" disabled={loading}>
-			{loading ? 'Processing...' : 'Ask DailyAssist'}
-		</button>
-		{#if isIterating}
-			<button type="button" class="stop-btn" onclick={stopIteration} aria-label="Stop execution">
-				Stop
-			</button>
-		{/if}
-	</form>
-
-	{#if marathonSuggestion}
+	<div class="conversation-area" bind:this={conversationAreaEl} role="region" aria-label="Chat conversation">
+		{#if marathonSuggestion}
 		<div class="marathon-suggestion" role="alert">
 			<p class="marathon-suggestion-reasoning">{marathonSuggestion.reasoning}</p>
 			{#if marathonSuggestion.userGuidance}
@@ -568,16 +558,83 @@
 			{/if}
 		</div>
 	{/if}
+	</div>
+
+	<div class="input-area">
+		<form onsubmit={handleSubmit}>
+			<label for="user-input">What can I help you with?</label>
+			<textarea
+				id="user-input"
+				bind:value={userInput}
+				placeholder="Examples:
+- Read this text to me: [paste text]
+- Remind me to take medication at 8 PM
+- What are my reminders?"
+				rows="3"
+			></textarea>
+			<div class="input-actions">
+				<button type="submit" disabled={loading}>
+					{loading ? 'Processing...' : 'Ask DailyAssist'}
+				</button>
+				{#if isIterating}
+					<button type="button" class="stop-btn" onclick={stopIteration} aria-label="Stop execution">
+						Stop
+					</button>
+				{/if}
+			</div>
+		</form>
+	</div>
 </div>
 
 <style>
 	.agent-panel {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
 		max-width: 600px;
-		margin: 2rem auto;
-		padding: 2rem;
+		margin: 0 auto;
+		padding: 0;
 		background: hsl(210 20% 98%);
 		border-radius: 12px;
 		box-shadow: 0 2px 8px hsla(210 20% 20% / 0.1);
+	}
+
+	.agent-panel-header {
+		flex-shrink: 0;
+		padding: 1rem 1rem 0.5rem;
+	}
+
+	.conversation-area {
+		flex: 1 1 0;
+		min-height: 0;
+		overflow-y: auto;
+		padding: 0.5rem 1rem 1rem;
+	}
+
+	.input-area {
+		flex-shrink: 0;
+		padding: 1rem;
+		border-top: 1px solid hsl(210 10% 90%);
+		background: hsl(210 15% 97%);
+		border-radius: 0 0 12px 12px;
+	}
+
+	:global(body.dark) .input-area {
+		border-top-color: hsl(210 20% 25%);
+		background: hsl(210 20% 12%);
+	}
+
+	.input-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: center;
+		margin-top: 0.75rem;
+	}
+
+	.input-actions button {
+		margin-top: 0;
 	}
 
 	:global(body.dark) .agent-panel {
@@ -587,7 +644,8 @@
 
 	h2 {
 		color: hsl(210 60% 40%);
-		margin-bottom: 1.5rem;
+		margin: 0 0 0.5rem;
+		font-size: 1.25rem;
 	}
 
 	:global(body.dark) h2 {
