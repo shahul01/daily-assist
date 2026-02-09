@@ -305,6 +305,29 @@ export interface Database {
 				};
 				Update: Partial<Database['public']['Tables']['marathon_actions']['Insert']>;
 			};
+			iterative_chat_sessions: {
+				Row: {
+					id: string;
+					user_id: string;
+					user_input: string;
+					plan_json: Json | null;
+					iterations_count: number;
+					execution_log_json: Json | null;
+					final_response: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					user_input: string;
+					plan_json?: Json | null;
+					iterations_count?: number;
+					execution_log_json?: Json | null;
+					final_response?: string | null;
+					created_at?: string;
+				};
+				Update: Partial<Database['public']['Tables']['iterative_chat_sessions']['Insert']>;
+			};
 			agent_executions: {
 				Row: {
 					id: string;

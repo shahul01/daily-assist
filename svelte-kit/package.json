@@ -14,6 +14,8 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test:unit": "vitest",
+		"test:e2e": "vitest run --project server",
+		"test:e2e:browser": "vitest run --project client --no-browser.headless src/tests/e2e/scenarios/medium-workflow.browser.spec.ts",
 		"test": "node scripts/run-tests-filter-teardown.mjs",
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",

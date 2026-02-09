@@ -8,6 +8,7 @@
 	import SeeAgent from '$lib/components/agents/SeeAgent.svelte';
 	import HearAgent from '$lib/components/agents/HearAgent.svelte';
 	import CreateAgent from '$lib/components/agents/CreateAgent.svelte';
+	import FindItAgent from '$lib/components/agents/FindItAgent.svelte';
 	import CalendarView from '$lib/components/agents/CalendarView.svelte';
 	import PatternDashboard from '$lib/components/agents/PatternDashboard.svelte';
 
@@ -79,6 +80,15 @@
 				identification, and sentiment. Speak alerts on or off.
 			</p>
 			<HearAgent {userId} />
+		</section>
+	{:else if agent === 'find-it'}
+		<section class="section" aria-labelledby="find-it-heading">
+			<h2 id="find-it-heading" class="section-heading">🔍 Find-It</h2>
+			<p class="section-desc">
+				Search, navigate, and locate files. Ask in chat to search—you’ll be directed here for full
+				access.
+			</p>
+			<FindItAgent />
 		</section>
 	{:else if agent === 'remember'}
 		<section class="section" aria-labelledby="remember-for-me-heading">

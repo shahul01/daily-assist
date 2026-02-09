@@ -3,6 +3,7 @@
 	import LineChart from '$lib/components/charts/LineChart.svelte';
 	import MarathonUsageSection from '$lib/components/page/MarathonUsageSection.svelte';
 	import ConversationUsageSection from '$lib/components/page/ConversationUsageSection.svelte';
+	import IterativeChatSection from '$lib/components/page/IterativeChatSection.svelte';
 	import AgentUsageSection from '$lib/components/page/AgentUsageSection.svelte';
 	import type { UsageStatsResponse } from '$lib/types/usage';
 
@@ -127,6 +128,8 @@
 			<MarathonUsageSection data={data.marathon} />
 			<ConversationUsageSection data={data.conversations} />
 		</div>
+
+		<IterativeChatSection {userId} />
 
 		<section class="agents-section">
 			<AgentUsageSection data={data.agentUsage} />
