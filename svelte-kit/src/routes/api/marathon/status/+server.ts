@@ -34,10 +34,15 @@ export const GET: RequestHandler = async ({ url }) => {
 			});
 		}
 
+		const typedSessions = (sessions ?? []) as MarathonSessionRow[];
+		const activeFromDb = typedSessions.find((s) => s.status === 'running') ?? null;
+		const activeSessionId = sessionId ?? activeFromDb?.id ?? null;
+		const running = !!activeSessionId;
+
 		return json({
-			activeSessionId: sessionId,
-			running: !!sessionId,
-			sessions: (sessions ?? []).map((s: MarathonSessionRow) => ({
+			activeSessionId,
+			running,
+			sessions: typedSessions.map((s) => ({
 				id: s.id,
 				status: s.status,
 				mode: s.mode,
