@@ -7,8 +7,8 @@ import type { RequestHandler } from './$types';
 const MAX_USERS_PER_RUN = 50;
 
 /**
- * Cron endpoint for 24/7 reminder monitoring.
- * Call every minute (e.g. Vercel Cron). Requires CRON_SECRET in env.
+ * Cron endpoint for reminder monitoring.
+ * Call daily (e.g. Vercel Cron; Hobby plan allows once/day). Requires CRON_SECRET in env.
  * Runs background tick for users with user_preferences key "background_monitoring" = true.
  */
 export const GET: RequestHandler = async ({ request }) => {
