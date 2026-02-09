@@ -95,7 +95,9 @@
 		background: hsl(210 25% 98%);
 		border-radius: 10px;
 		border: 1px solid hsl(210 15% 90%);
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease;
 	}
 	:global(body.dark) .agent-card {
 		background: hsl(210 25% 18%);

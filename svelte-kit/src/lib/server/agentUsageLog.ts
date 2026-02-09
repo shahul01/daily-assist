@@ -13,7 +13,9 @@ export async function logAgentUsage(
 	if (!userId || !agentName) return;
 	try {
 		// Table added via migration; types regenerated may not include it yet
-		await (client as unknown as { from: (t: string) => { insert: (r: object) => Promise<unknown> } })
+		await (
+			client as unknown as { from: (t: string) => { insert: (r: object) => Promise<unknown> } }
+		)
 			.from('agent_usage_log')
 			.insert({ user_id: userId, agent_name: agentName });
 	} catch {

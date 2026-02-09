@@ -19,7 +19,9 @@
 	<div class="bars">
 		{#each displayData as item (item.label + item.value)}
 			<div class="bar-row">
-				<span class="bar-label" title={item.label}>{item.label.length > 12 ? item.label.slice(0, 11) + '…' : item.label}</span>
+				<span class="bar-label" title={item.label}
+					>{item.label.length > 12 ? item.label.slice(0, 11) + '…' : item.label}</span
+				>
 				<div class="bar-track">
 					<div
 						class="bar-fill"

@@ -16,13 +16,26 @@
 		data.topAgents.slice(0, 6).map((a, i) => ({
 			label: getAgentLabel(a.name as AgentId) || a.name,
 			value: a.executionCount,
-			color: ['hsl(210 60% 50%)', 'hsl(142 55% 42%)', 'hsl(38 90% 50%)', 'hsl(280 60% 55%)', 'hsl(0 65% 52%)', 'hsl(180 55% 45%)'][i] ?? 'hsl(210 40% 60%)'
+			color:
+				[
+					'hsl(210 60% 50%)',
+					'hsl(142 55% 42%)',
+					'hsl(38 90% 50%)',
+					'hsl(280 60% 55%)',
+					'hsl(0 65% 52%)',
+					'hsl(180 55% 45%)'
+				][i] ?? 'hsl(210 40% 60%)'
 		}))
 	);
 
 	function formatDate(iso: string): string {
 		const d = new Date(iso);
-		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+		return d.toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 	}
 
 	function formatDuration(hours: number | null): string {
@@ -35,22 +48,9 @@
 <section class="marathon-section" aria-labelledby="marathon-heading">
 	<h2 id="marathon-heading" class="section-heading">Marathon &amp; orchestration</h2>
 	<div class="stats-row">
-		<StatCard
-			label="Sessions"
-			value={data.sessionCount}
-			icon="🏃"
-			subtitle="Last 30 days"
-		/>
-		<StatCard
-			label="Avg duration"
-			value={formatDuration(data.avgDurationHours)}
-			icon="⏱️"
-		/>
-		<StatCard
-			label="Success rate"
-			value="{data.successRate}%"
-			icon="✓"
-		/>
+		<StatCard label="Sessions" value={data.sessionCount} icon="🏃" subtitle="Last 30 days" />
+		<StatCard label="Avg duration" value={formatDuration(data.avgDurationHours)} icon="⏱️" />
+		<StatCard label="Success rate" value="{data.successRate}%" icon="✓" />
 	</div>
 	{#if donutData.length > 0}
 		<div class="donut-wrap">
@@ -129,7 +129,9 @@
 		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
-		transition: background 0.2s, border-color 0.2s;
+		transition:
+			background 0.2s,
+			border-color 0.2s;
 	}
 	:global(body.dark) .expand-btn {
 		border-color: hsl(210 20% 28%);
@@ -180,10 +182,10 @@
 		text-transform: capitalize;
 		font-weight: 600;
 	}
-	.session-status[data-status="running"] {
+	.session-status[data-status='running'] {
 		color: hsl(142 55% 38%);
 	}
-	.session-status[data-status="completed"] {
+	.session-status[data-status='completed'] {
 		color: hsl(210 60% 45%);
 	}
 

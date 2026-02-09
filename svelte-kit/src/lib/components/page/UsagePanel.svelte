@@ -42,7 +42,15 @@
 				return;
 			}
 			const payload = jsonData as UsageStatsResponse;
-			if (payload && typeof payload === 'object' && payload.overall && payload.marathon && payload.conversations && Array.isArray(payload.agentUsage) && Array.isArray(payload.timeline)) {
+			if (
+				payload &&
+				typeof payload === 'object' &&
+				payload.overall &&
+				payload.marathon &&
+				payload.conversations &&
+				Array.isArray(payload.agentUsage) &&
+				Array.isArray(payload.timeline)
+			) {
 				data = payload;
 			} else {
 				data = null;
@@ -103,21 +111,9 @@
 				icon="📊"
 				subtitle="Last 30 days"
 			/>
-			<StatCard
-				label="Actions"
-				value={data.overall.totalActions}
-				icon="⚡"
-			/>
-			<StatCard
-				label="Active agents"
-				value={data.overall.activeAgentsCount}
-				icon="🤖"
-			/>
-			<StatCard
-				label="Memories"
-				value={data.overall.totalMemories}
-				icon="🧠"
-			/>
+			<StatCard label="Actions" value={data.overall.totalActions} icon="⚡" />
+			<StatCard label="Active agents" value={data.overall.activeAgentsCount} icon="🤖" />
+			<StatCard label="Memories" value={data.overall.totalMemories} icon="🧠" />
 		</div>
 
 		{#if timelineData.length > 0}

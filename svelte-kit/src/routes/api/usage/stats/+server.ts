@@ -76,10 +76,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				.eq('user_id', userId)
 				.gte('created_at', since)
 				.eq('deleted', false),
-			client
-				.from('drafts')
-				.select('id', { count: 'exact', head: true })
-				.eq('user_id', userId),
+			client.from('drafts').select('id', { count: 'exact', head: true }).eq('user_id', userId),
 			client
 				.from('agent_usage_log')
 				.select('agent_name, created_at')
@@ -132,13 +129,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const totalTurns = convSessions.reduce((s, c) => s + c.turn_count, 0);
 		const avgTurns =
-			convSessions.length > 0
-				? Math.round((totalTurns / convSessions.length) * 10) / 10
-				: 0;
-		const totalDuration = convSessions.reduce(
-			(s, c) => s + (c.duration_seconds ?? 0),
-			0
-		);
+			convSessions.length > 0 ? Math.round((totalTurns / convSessions.length) * 10) / 10 : 0;
+		const totalDuration = convSessions.reduce((s, c) => s + (c.duration_seconds ?? 0), 0);
 		const avgDurationSeconds =
 			convSessions.length > 0 ? Math.round(totalDuration / convSessions.length) : 0;
 
@@ -167,9 +159,27 @@ export const POST: RequestHandler = async ({ request }) => {
 					specificMetric: undefined
 				}))
 			: [
-					{ agentName: 'create', totalActions: generations.length, successRate: 100, lastUsed: generations[0]?.created_at ?? null, specificMetric: generations.length },
-					{ agentName: 'write', totalActions: draftCount, successRate: 100, lastUsed: null, specificMetric: draftCount },
-					{ agentName: 'remember', totalActions: totalPatterns, successRate: 100, lastUsed: null, specificMetric: totalPatterns }
+					{
+						agentName: 'create',
+						totalActions: generations.length,
+						successRate: 100,
+						lastUsed: generations[0]?.created_at ?? null,
+						specificMetric: generations.length
+					},
+					{
+						agentName: 'write',
+						totalActions: draftCount,
+						successRate: 100,
+						lastUsed: null,
+						specificMetric: draftCount
+					},
+					{
+						agentName: 'remember',
+						totalActions: totalPatterns,
+						successRate: 100,
+						lastUsed: null,
+						specificMetric: totalPatterns
+					}
 				].filter((a) => a.totalActions > 0);
 
 		const dateCounts: Record<string, { sessions: number; actions: number }> = {};

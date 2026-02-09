@@ -33,9 +33,7 @@
 		return `M ${points.join(' L ')}`;
 	});
 
-	const yTicks = $derived(
-		maxY >= 2 ? [maxY, Math.round(maxY / 2), 0] : [maxY, 0]
-	);
+	const yTicks = $derived(maxY >= 2 ? [maxY, Math.round(maxY / 2), 0] : [maxY, 0]);
 	function formatXLabel(x: string): string {
 		const d = new Date(x + 'T00:00:00');
 		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -44,7 +42,7 @@
 	let hoverIndex = $state<number | null>(null);
 </script>
 
-<figure class="line-chart" role="img" aria-label="{label}">
+<figure class="line-chart" role="img" aria-label={label}>
 	<svg
 		viewBox="0 0 {width} {height}"
 		preserveAspectRatio="xMidYMid meet"
@@ -72,12 +70,20 @@
 		<!-- Area fill -->
 		{#if pathD}
 			<path
-				d="{pathD} L {scaleX(data.length - 1)},{padding.top + innerDims.innerHeight} L {padding.left},{padding.top + innerDims.innerHeight} Z"
+				d="{pathD} L {scaleX(data.length - 1)},{padding.top +
+					innerDims.innerHeight} L {padding.left},{padding.top + innerDims.innerHeight} Z"
 				fill="url(#line-chart-gradient)"
 			/>
 		{/if}
 		<!-- Line -->
-		<path d={pathD} fill="none" stroke={color} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+		<path
+			d={pathD}
+			fill="none"
+			stroke={color}
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+		/>
 		<!-- Points -->
 		{#each data as d, i (d.x + d.y)}
 			<circle

@@ -12,7 +12,10 @@
 
 	const barData = $derived(
 		data.recentSessions.slice(0, 8).map((s) => ({
-			label: new Date(s.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+			label: new Date(s.started_at).toLocaleDateString(undefined, {
+				month: 'short',
+				day: 'numeric'
+			}),
 			value: s.turn_count
 		}))
 	);
@@ -36,27 +39,10 @@
 <section class="conversation-section" aria-labelledby="conversation-heading">
 	<h2 id="conversation-heading" class="section-heading">Conversations</h2>
 	<div class="stats-row">
-		<StatCard
-			label="Sessions"
-			value={data.sessionCount}
-			icon="💬"
-			subtitle="Last 30 days"
-		/>
-		<StatCard
-			label="Total turns"
-			value={data.totalTurns}
-			icon="🔄"
-		/>
-		<StatCard
-			label="Avg turns/session"
-			value={data.avgTurnsPerSession}
-			icon="📊"
-		/>
-		<StatCard
-			label="Avg duration"
-			value={formatDuration(data.avgDurationSeconds)}
-			icon="⏱️"
-		/>
+		<StatCard label="Sessions" value={data.sessionCount} icon="💬" subtitle="Last 30 days" />
+		<StatCard label="Total turns" value={data.totalTurns} icon="🔄" />
+		<StatCard label="Avg turns/session" value={data.avgTurnsPerSession} icon="📊" />
+		<StatCard label="Avg duration" value={formatDuration(data.avgDurationSeconds)} icon="⏱️" />
 	</div>
 	{#if barData.length > 0}
 		<div class="bar-wrap">
@@ -134,7 +120,9 @@
 		font-size: 0.875rem;
 		font-weight: 500;
 		cursor: pointer;
-		transition: background 0.2s, border-color 0.2s;
+		transition:
+			background 0.2s,
+			border-color 0.2s;
 	}
 	:global(body.dark) .expand-btn {
 		border-color: hsl(210 20% 28%);

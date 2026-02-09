@@ -36,7 +36,9 @@
 		background: hsl(210 30% 96%);
 		border-radius: 12px;
 		box-shadow: 0 1px 3px hsl(210 20% 85%);
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease;
 	}
 	:global(body.dark) .stat-card {
 		background: hsl(210 30% 15%);

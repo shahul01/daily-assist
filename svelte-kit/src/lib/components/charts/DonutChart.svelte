@@ -12,7 +12,12 @@
 	}
 	let { data = [], size = 160, strokeWidth = 14 }: Props = $props();
 
-	const total = $derived(Math.max(1, data.reduce((s, d) => s + d.value, 0)));
+	const total = $derived(
+		Math.max(
+			1,
+			data.reduce((s, d) => s + d.value, 0)
+		)
+	);
 	const geometry = $derived.by(() => {
 		const r = (size - strokeWidth) / 2;
 		return {
