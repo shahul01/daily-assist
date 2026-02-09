@@ -6,7 +6,10 @@
 	import ThoughtSignatureViewer from './ThoughtSignatureViewer.svelte';
 	import PlanDisplay from './PlanDisplay.svelte';
 	import ExecutionLog, { type LogEntry } from './ExecutionLog.svelte';
+	import ConversationHistoryModal from './ConversationHistoryModal.svelte';
+	import { saveConversation } from '$lib/utils/conversationStorage';
 	import type { PlannerPlan } from '$lib/agents/orchestrator';
+	import type { StoredConversation } from '$lib/types/conversation';
 
 	let userInput = $state('');
 	let response = $state('');
@@ -48,6 +51,7 @@
 	let isStreaming = $state(false);
 	/** When set, show marathon suggestion with Accept/Decline. */
 	let marathonSuggestion = $state<{ reasoning: string; userGuidance?: string } | null>(null);
+	let showHistory = $state(false);
 
 	if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 		canUseTts = true;
@@ -366,6 +370,20 @@
 			loading = false;
 			isIterating = false;
 			abortController = null;
+			if (response && userInput.trim()) {
+				try {
+					saveConversation({
+						userInput: userInput.trim(),
+						finalResponse: response,
+						plan: currentPlan,
+						executionLog: executionLogEntries,
+						iterationsCount: currentIteration,
+						agentsUsed: [...agentsUsed]
+					});
+				} catch (err) {
+					console.warn('Failed to save conversation to localStorage:', err);
+				}
+			}
 		}
 	}
 
@@ -391,6 +409,29 @@
 		marathonSuggestion = null;
 	}
 
+	function handleRestoreConversation(data: StoredConversation) {
+		userInput = '';
+		response = data.finalResponse ?? '';
+		const log = Array.isArray(data.executionLog) ? data.executionLog : [];
+		currentPlan = data.plan ?? null;
+		executionLogEntries = log as LogEntry[];
+		showPlan = data.plan != null;
+		showExecutionLog = log.length > 0;
+		currentIteration = Math.max(0, Number(data.iterationsCount) || 0);
+		agentsUsed = Array.isArray(data.agentsUsed) ? [...data.agentsUsed] : [];
+		const actionEntries = log.filter((e) => e && e.type === 'action');
+		actions = actionEntries.map((e) => ({
+			agent: e.agent ?? '',
+			action: e.action ?? '',
+			result: undefined
+		}));
+		playbackText = response ? markdownToPlainTextForTts(response) : '';
+		marathonSuggestion = null;
+		if (conversationAreaEl) {
+			conversationAreaEl.scrollTop = 0;
+		}
+	}
+
 	let conversationAreaEl: HTMLDivElement | null = $state(null);
 
 	$effect(() => {
@@ -405,7 +446,21 @@
 <div class="agent-panel">
 	<header class="agent-panel-header">
 		<h2>DailyAssist - Your AI Companion</h2>
+		<button
+			type="button"
+			class="history-btn"
+			onclick={() => (showHistory = !showHistory)}
+			aria-expanded={showHistory}
+			aria-label="Conversation history"
+		>
+			History
+		</button>
 	</header>
+	<ConversationHistoryModal
+		open={showHistory}
+		onClose={() => (showHistory = false)}
+		onRestore={handleRestoreConversation}
+	/>
 
 	<div
 		class="conversation-area"
@@ -620,7 +675,39 @@
 
 	.agent-panel-header {
 		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
 		padding: 1rem 1rem 0.5rem;
+	}
+	.agent-panel-header h2 {
+		flex: 1;
+		min-width: 0;
+	}
+	.history-btn {
+		flex-shrink: 0;
+		padding: 0.4rem 0.75rem;
+		font-size: 0.875rem;
+		background: hsl(210 25% 92%);
+		color: hsl(210 50% 35%);
+		border: 1px solid hsl(210 30% 85%);
+		border-radius: 8px;
+		cursor: pointer;
+		font-weight: 500;
+	}
+	.history-btn:hover {
+		background: hsl(210 30% 88%);
+		color: hsl(210 60% 30%);
+	}
+	:global(body.dark) .history-btn {
+		background: hsl(210 20% 22%);
+		color: hsl(210 50% 70%);
+		border-color: hsl(210 20% 32%);
+	}
+	:global(body.dark) .history-btn:hover {
+		background: hsl(210 25% 28%);
+		color: hsl(210 60% 80%);
 	}
 
 	.conversation-area {
