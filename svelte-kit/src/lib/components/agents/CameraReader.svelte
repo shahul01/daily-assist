@@ -105,7 +105,10 @@
 			Camera is not supported in this browser.
 		</p>
 	{:else if error}
-		<p class="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+		<p class="text-sm text-red-600 dark:text-red-400" role="alert">
+			<span class="font-medium">Error:</span>
+			{error}
+		</p>
 	{:else}
 		<div class="relative aspect-video w-full overflow-hidden rounded-lg bg-neutral-900">
 			{#if active && videoEl}

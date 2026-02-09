@@ -284,7 +284,9 @@
 				: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200'}"
 			role="alert"
 		>
-			{message}
+			{#if error}<span class="font-medium">Error:</span>
+			{:else}<span class="font-medium">Success:</span>
+			{/if}{message}
 		</p>
 	{/if}
 

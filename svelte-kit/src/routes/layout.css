@@ -1,1 +1,47 @@
 @import 'tailwindcss';
+
+/* Reduced motion: single global rule. No !important so page/component <style> can override. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms;
+		animation-iteration-count: 1;
+		transition-duration: 0.01ms;
+	}
+}
+html.a11y-reduce-motion *,
+html.a11y-reduce-motion *::before,
+html.a11y-reduce-motion *::after {
+	animation-duration: 0.01ms;
+	animation-iteration-count: 1;
+	transition-duration: 0.01ms;
+}
+
+/* User chose "Off" for reduce motion: allow full motion (overrides media query via later rule). */
+html.a11y-allow-motion *,
+html.a11y-allow-motion *::before,
+html.a11y-allow-motion *::after {
+	animation-duration: revert;
+	animation-iteration-count: revert;
+	transition-duration: revert;
+}
+
+/* Accessibility: larger base font (overridable by page styles) */
+html.a11y-font-large {
+	font-size: 118.75%;
+}
+@media (min-width: 640px) {
+	html.a11y-font-large {
+		font-size: 125%;
+	}
+}
+
+/* High contrast focus / controls (stronger focus ring) */
+html.a11y-high-contrast :focus-visible {
+	outline: 3px solid hsl(210 80% 40%);
+	outline-offset: 2px;
+}
+html.a11y-high-contrast.dark :focus-visible {
+	outline-color: hsl(210 70% 55%);
+}

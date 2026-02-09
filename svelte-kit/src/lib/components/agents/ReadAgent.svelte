@@ -157,7 +157,10 @@
 		<p class="mb-2 text-sm text-neutral-500 dark:text-neutral-400">File: {fileName}</p>
 	{/if}
 	{#if error}
-		<p class="mb-2 text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+		<p class="mb-2 text-sm text-red-600 dark:text-red-400" role="alert">
+			<span class="font-medium">Error:</span>
+			{error}
+		</p>
 	{/if}
 	{#if output}
 		<div
