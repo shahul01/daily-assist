@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AgentPanel from '$lib/components/agents/AgentPanel.svelte';
 
-	let open = $state(false);
+	let open = $state(true);
 </script>
 
 <div class="drawer-wrapper">

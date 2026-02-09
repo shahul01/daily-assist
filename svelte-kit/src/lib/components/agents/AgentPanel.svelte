@@ -407,157 +407,170 @@
 		<h2>DailyAssist - Your AI Companion</h2>
 	</header>
 
-	<div class="conversation-area" bind:this={conversationAreaEl} role="region" aria-label="Chat conversation">
+	<div
+		class="conversation-area"
+		bind:this={conversationAreaEl}
+		role="region"
+		aria-label="Chat conversation"
+	>
+		{#if loading}
+			<div class="status-bubble" role="status" aria-live="polite">
+				<span class="status-text">
+					{executionLogEntries.length > 0 ? 'Answering' : 'Thinking'}
+				</span>
+			</div>
+		{/if}
+
 		{#if marathonSuggestion}
-		<div class="marathon-suggestion" role="alert">
-			<p class="marathon-suggestion-reasoning">{marathonSuggestion.reasoning}</p>
-			{#if marathonSuggestion.userGuidance}
-				<p class="marathon-suggestion-guidance">{marathonSuggestion.userGuidance}</p>
-			{/if}
-			<div class="marathon-suggestion-actions">
-				<button type="button" onclick={acceptMarathon}>Enable Marathon</button>
-				<button type="button" class="secondary" onclick={declineMarathon}>No thanks</button>
-			</div>
-		</div>
-	{/if}
-
-	{#if showPlan && currentPlan}
-		<PlanDisplay plan={currentPlan} onClose={clearPlanAndLog} />
-	{/if}
-	{#if showExecutionLog}
-		<ExecutionLog
-			logEntries={executionLogEntries}
-			isRunning={isIterating}
-			{currentIteration}
-			{maxIterations}
-			onClose={clearPlanAndLog}
-		/>
-	{/if}
-
-	{#if agentsUsed.length > 0}
-		<div class="agents-used">
-			<strong>Agents used:</strong>
-			{agentsUsed.join(', ')}
-		</div>
-	{/if}
-
-	{#if thoughtFlowItems.length > 0}
-		<ThoughtSignatureViewer items={thoughtFlowItems} />
-	{/if}
-
-	{#if response || isStreaming}
-		<div class="response">
-			<strong>DailyAssist:</strong>
-			<MarkdownRenderer content={response} {isStreaming} />
-		</div>
-	{/if}
-
-	{#if webSearchResult && webSearchResult.sources?.length}
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- external source URLs -->
-		<div class="web-search-sources" role="region" aria-label="Web search sources">
-			<strong>Sources</strong>
-			<ul class="web-search-sources-list">
-				{#each webSearchResult.sources as source (source.url)}
-					<li>
-						<a
-							href={source.url}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="web-search-source-link"
-						>
-							{source.title || source.url}
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</div>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
-	{/if}
-
-	{#if playbackText && canUseTts}
-		<div class="tts-controls" role="group" aria-label="Text to speech">
-			<div class="tts-buttons">
-				{#if isSpeaking}
-					<button
-						type="button"
-						onclick={isPaused ? resumeSpeaking : pauseSpeaking}
-						aria-label={isPaused ? 'Resume' : 'Pause'}
-					>
-						{isPaused ? 'Resume' : 'Pause'}
-					</button>
-					<button type="button" onclick={stopSpeaking} aria-label="Stop">Stop</button>
-				{:else}
-					<button
-						type="button"
-						onclick={() => speak(playbackText)}
-						aria-label="Read response aloud"
-					>
-						Read aloud
-					</button>
+			<div class="marathon-suggestion" role="alert">
+				<p class="marathon-suggestion-reasoning">{marathonSuggestion.reasoning}</p>
+				{#if marathonSuggestion.userGuidance}
+					<p class="marathon-suggestion-guidance">{marathonSuggestion.userGuidance}</p>
 				{/if}
-				<button
-					type="button"
-					class="tts-options-toggle"
-					onclick={() => (showTtsOptions = !showTtsOptions)}
-					aria-expanded={showTtsOptions}
-					aria-label="TTS options"
-				>
-					{showTtsOptions ? 'Hide options' : 'Options'}
-				</button>
-			</div>
-			{#if showTtsOptions}
-				<div class="tts-options">
-					<label>
-						Voice
-						<select aria-label="Voice" bind:value={selectedVoiceId} disabled={isSpeaking}>
-							{#each voices as v (v.name + v.lang)}
-								<option value={v.name + '|' + v.lang}>
-									{v.name} ({v.lang})
-								</option>
-							{/each}
-						</select>
-					</label>
-					<label>
-						Speed
-						<select aria-label="Speed" bind:value={ttsRate} disabled={isSpeaking}>
-							<option value={0.5}>0.5× Slower</option>
-							<option value={0.75}>0.75×</option>
-							<option value={1}>1× Normal</option>
-							<option value={1.25}>1.25×</option>
-							<option value={1.5}>1.5×</option>
-							<option value={2}>2× Faster</option>
-						</select>
-					</label>
-					<label>
-						Volume
-						<input
-							type="range"
-							min="0"
-							max="1"
-							step="0.1"
-							aria-label="Volume"
-							bind:value={ttsVolume}
-							disabled={isSpeaking}
-						/>
-						<span class="tts-value">{Math.round(ttsVolume * 100)}%</span>
-					</label>
-					<label>
-						Pitch
-						<input
-							type="range"
-							min="0.5"
-							max="2"
-							step="0.1"
-							aria-label="Pitch"
-							bind:value={ttsPitch}
-							disabled={isSpeaking}
-						/>
-						<span class="tts-value">{ttsPitch.toFixed(1)}</span>
-					</label>
+				<div class="marathon-suggestion-actions">
+					<button type="button" onclick={acceptMarathon}>Enable Marathon</button>
+					<button type="button" class="secondary" onclick={declineMarathon}>No thanks</button>
 				</div>
-			{/if}
-		</div>
-	{/if}
+			</div>
+		{/if}
+
+		{#if showPlan && currentPlan}
+			<PlanDisplay plan={currentPlan} onClose={clearPlanAndLog} />
+		{/if}
+		{#if showExecutionLog}
+			<ExecutionLog
+				logEntries={executionLogEntries}
+				isRunning={isIterating}
+				{currentIteration}
+				{maxIterations}
+				onClose={clearPlanAndLog}
+			/>
+		{/if}
+
+		{#if agentsUsed.length > 0}
+			<div class="agents-used">
+				<strong>Agents used:</strong>
+				{agentsUsed.join(', ')}
+			</div>
+		{/if}
+
+		{#if thoughtFlowItems.length > 0}
+			<ThoughtSignatureViewer items={thoughtFlowItems} />
+		{/if}
+
+		{#if response || isStreaming}
+			<div class="response">
+				<strong>DailyAssist:</strong>
+				<MarkdownRenderer content={response} {isStreaming} />
+			</div>
+		{/if}
+
+		{#if webSearchResult && webSearchResult.sources?.length}
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- external source URLs -->
+			<div class="web-search-sources" role="region" aria-label="Web search sources">
+				<strong>Sources</strong>
+				<ul class="web-search-sources-list">
+					{#each webSearchResult.sources as source (source.url)}
+						<li>
+							<a
+								href={source.url}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="web-search-source-link"
+							>
+								{source.title || source.url}
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</div>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		{/if}
+
+		{#if playbackText && canUseTts}
+			<div class="tts-controls" role="group" aria-label="Text to speech">
+				<div class="tts-buttons">
+					{#if isSpeaking}
+						<button
+							type="button"
+							onclick={isPaused ? resumeSpeaking : pauseSpeaking}
+							aria-label={isPaused ? 'Resume' : 'Pause'}
+						>
+							{isPaused ? 'Resume' : 'Pause'}
+						</button>
+						<button type="button" onclick={stopSpeaking} aria-label="Stop">Stop</button>
+					{:else}
+						<button
+							type="button"
+							onclick={() => speak(playbackText)}
+							aria-label="Read response aloud"
+						>
+							Read aloud
+						</button>
+					{/if}
+					<button
+						type="button"
+						class="tts-options-toggle"
+						onclick={() => (showTtsOptions = !showTtsOptions)}
+						aria-expanded={showTtsOptions}
+						aria-label="TTS options"
+					>
+						{showTtsOptions ? 'Hide options' : 'Options'}
+					</button>
+				</div>
+				{#if showTtsOptions}
+					<div class="tts-options">
+						<label>
+							Voice
+							<select aria-label="Voice" bind:value={selectedVoiceId} disabled={isSpeaking}>
+								{#each voices as v (v.name + v.lang)}
+									<option value={v.name + '|' + v.lang}>
+										{v.name} ({v.lang})
+									</option>
+								{/each}
+							</select>
+						</label>
+						<label>
+							Speed
+							<select aria-label="Speed" bind:value={ttsRate} disabled={isSpeaking}>
+								<option value={0.5}>0.5× Slower</option>
+								<option value={0.75}>0.75×</option>
+								<option value={1}>1× Normal</option>
+								<option value={1.25}>1.25×</option>
+								<option value={1.5}>1.5×</option>
+								<option value={2}>2× Faster</option>
+							</select>
+						</label>
+						<label>
+							Volume
+							<input
+								type="range"
+								min="0"
+								max="1"
+								step="0.1"
+								aria-label="Volume"
+								bind:value={ttsVolume}
+								disabled={isSpeaking}
+							/>
+							<span class="tts-value">{Math.round(ttsVolume * 100)}%</span>
+						</label>
+						<label>
+							Pitch
+							<input
+								type="range"
+								min="0.5"
+								max="2"
+								step="0.1"
+								aria-label="Pitch"
+								bind:value={ttsPitch}
+								disabled={isSpeaking}
+							/>
+							<span class="tts-value">{ttsPitch.toFixed(1)}</span>
+						</label>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<div class="input-area">
@@ -577,7 +590,12 @@
 					{loading ? 'Processing...' : 'Ask DailyAssist'}
 				</button>
 				{#if isIterating}
-					<button type="button" class="stop-btn" onclick={stopIteration} aria-label="Stop execution">
+					<button
+						type="button"
+						class="stop-btn"
+						onclick={stopIteration}
+						aria-label="Stop execution"
+					>
 						Stop
 					</button>
 				{/if}
@@ -610,6 +628,46 @@
 		min-height: 0;
 		overflow-y: auto;
 		padding: 0.5rem 1rem 1rem;
+	}
+
+	.status-bubble {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.5rem 1rem;
+		margin-bottom: 0.75rem;
+		background: hsl(210 40% 94%);
+		border-radius: 12px;
+		border: 1px solid hsl(210 30% 88%);
+		font-size: 0.9rem;
+		color: hsl(210 50% 35%);
+	}
+	:global(body.dark) .status-bubble {
+		background: hsl(210 25% 22%);
+		border-color: hsl(210 20% 30%);
+		color: hsl(210 40% 75%);
+	}
+	.status-text {
+		display: inline-block;
+	}
+	.status-text::after {
+		content: '';
+		animation: status-dots 1.4s steps(4, end) infinite;
+	}
+	@keyframes status-dots {
+		0%,
+		20% {
+			content: '';
+		}
+		40% {
+			content: '.';
+		}
+		60% {
+			content: '..';
+		}
+		80%,
+		100% {
+			content: '...';
+		}
 	}
 
 	.input-area {
