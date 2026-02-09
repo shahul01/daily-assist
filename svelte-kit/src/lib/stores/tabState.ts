@@ -5,7 +5,7 @@
 
 export type PrimaryTab = 'home' | 'chat' | 'tools' | 'dashboard' | 'usage';
 export type FunctionGroup = 'communication' | 'sense' | 'memory';
-export type AgentId = 'read' | 'write' | 'say' | 'create' | 'see' | 'hear' | 'remember';
+export type AgentId = 'read' | 'write' | 'say' | 'create' | 'see' | 'hear' | 'remember' | 'find-it';
 
 export interface TabState {
 	primary: PrimaryTab;
@@ -39,7 +39,8 @@ export const AGENTS_BY_GROUP: Record<
 	],
 	sense: [
 		{ id: 'see', label: 'See', icon: '👁️' },
-		{ id: 'hear', label: 'Hear', icon: '👂' }
+		{ id: 'hear', label: 'Hear', icon: '👂' },
+		{ id: 'find-it', label: 'Find-It', icon: '🔍' }
 	],
 	memory: [{ id: 'remember', label: 'Remember', icon: '🧠' }]
 };
@@ -52,7 +53,8 @@ export const ALL_AGENTS_IDS: AgentId[] = [
 	'create',
 	'see',
 	'hear',
-	'remember'
+	'remember',
+	'find-it'
 ];
 
 const AGENT_LABELS: Record<AgentId, string> = {
@@ -62,7 +64,8 @@ const AGENT_LABELS: Record<AgentId, string> = {
 	create: 'Create-For-Me',
 	see: 'See-For-Me',
 	hear: 'Hear-For-Me',
-	remember: 'Remember-For-Me'
+	remember: 'Remember-For-Me',
+	'find-it': 'Find-It'
 };
 
 export function getAgentLabel(id: AgentId): string {

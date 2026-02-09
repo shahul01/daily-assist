@@ -4,6 +4,9 @@
 	import { markdownToPlainTextForTts } from '$lib/utils/markdown';
 	import { getOrCreateUserId } from '$lib/supabase';
 	import ThoughtSignatureViewer from './ThoughtSignatureViewer.svelte';
+	import PlanDisplay from './PlanDisplay.svelte';
+	import ExecutionLog, { type LogEntry } from './ExecutionLog.svelte';
+	import type { PlannerPlan } from '$lib/agents/orchestrator';
 
 	let userInput = $state('');
 	let response = $state('');
@@ -13,6 +16,17 @@
 	let actions = $state<AgentAction[]>([]);
 	/** Valid Supabase auth user id (from anonymous sign-in). Required for reminders/memory. */
 	let userId = $state<string | null>(null);
+
+	/** Gemini 3 plan (shown above execution log). Cleared on close or new chat. */
+	let currentPlan = $state<PlannerPlan | null>(null);
+	let showPlan = $state(false);
+	/** Progressive execution log. Cleared on close or new chat. */
+	let executionLogEntries = $state<LogEntry[]>([]);
+	let showExecutionLog = $state(false);
+	let isIterating = $state(false);
+	let currentIteration = $state(0);
+	const maxIterations = 10;
+	let abortController: AbortController | null = null;
 
 	onMount(() => {
 		getOrCreateUserId().then((id) => {
@@ -76,40 +90,28 @@
 		return fallbackText;
 	}
 
-	type StreamEvent = {
-		type: string;
-		agentsUsed?: string[];
-		actions?: AgentAction[];
-		text?: string;
-		message?: string;
-	};
+	function resultSummary(result: unknown): string {
+		if (result == null) return '—';
+		if (typeof result === 'string') return result.slice(0, 60);
+		if (typeof result === 'object' && 'error' in (result as object)) return 'error';
+		if (typeof result === 'object' && 'message' in (result as object))
+			return String((result as { message: string }).message).slice(0, 60);
+		if (typeof result === 'object' && 'correctedText' in (result as object)) return 'corrected';
+		if (typeof result === 'object' && 'adjustedText' in (result as object)) return 'adjusted';
+		return 'ok';
+	}
 
-	function parseStreamEvent(line: string): Partial<{
-		agentsUsed: string[];
-		actions: AgentAction[];
-		appendText: string;
-		error: string;
-	}> | null {
-		try {
-			const event = JSON.parse(line) as StreamEvent;
-			if (event.type === 'meta')
-				return {
-					agentsUsed: event.agentsUsed ?? [],
-					actions: event.actions ?? []
-				};
-			if (event.type === 'chunk' && event.text) {
-				// Log chunk granularity for debugging (Gemini streams sentence-by-sentence, not word-by-word)
-				console.debug('[stream-chunk]', {
-					size: event.text.length,
-					preview: event.text.slice(0, 50)
-				});
-				return { appendText: event.text };
-			}
-			if (event.type === 'error' && event.message) return { error: `Error: ${event.message}` };
-		} catch {
-			// Skip malformed lines
+	function clearPlanAndLog() {
+		currentPlan = null;
+		showPlan = false;
+		executionLogEntries = [];
+		showExecutionLog = false;
+	}
+
+	function stopIteration() {
+		if (abortController) {
+			abortController.abort();
 		}
-		return null;
 	}
 
 	function speak(text: string) {
@@ -180,67 +182,132 @@
 		agentsUsed = [];
 		actions = [];
 		playbackText = '';
+		clearPlanAndLog();
+		abortController = new AbortController();
 
 		try {
-			const res = await fetch('/api/agents/orchestrate', {
+			const res = await fetch('/api/agents/orchestrate-iterative', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Accept: 'text/event-stream'
-				},
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					userInput: userInput.trim(),
-					userId: uid
-				})
+					userId: uid,
+					maxIterations
+				}),
+				signal: abortController.signal
 			});
 
 			if (!res.ok) {
 				throw new Error(`API error: ${res.statusText}`);
 			}
 
-			const contentType = res.headers.get('Content-Type') ?? '';
-			const isStream = contentType.includes('application/x-ndjson');
+			const reader = res.body!.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+			isIterating = true;
 
-			if (isStream && res.body) {
-				isStreaming = true;
-				const reader = res.body.getReader();
-				const decoder = new TextDecoder();
-				let buffer = '';
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					buffer += decoder.decode(value, { stream: true });
-					const lines = buffer.split('\n');
-					buffer = lines.pop() ?? '';
-					for (const line of lines) {
-						const update = parseStreamEvent(line);
-						if (!update) continue;
-						if (update.agentsUsed !== undefined) agentsUsed = update.agentsUsed;
-						if (update.actions !== undefined) actions = update.actions;
-						if (update.appendText) response += update.appendText;
-						if (update.error) response = update.error;
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n');
+				buffer = lines.pop() ?? '';
+				for (const line of lines) {
+					if (!line.trim()) continue;
+					try {
+						const event = JSON.parse(line) as Record<string, unknown> & { type: string };
+						if (event.type === 'plan' && event.plan) {
+							currentPlan = event.plan as PlannerPlan;
+							showPlan = true;
+							showExecutionLog = true;
+							currentIteration = Math.max(0, Number(event.iteration) || 0);
+						} else if (event.type === 'iteration_start') {
+							const iter = Math.max(0, Number(event.iteration) || 0);
+							executionLogEntries = [
+								...executionLogEntries,
+								{ type: 'iteration_start', iteration: iter, status: 'running' }
+							];
+							currentIteration = iter;
+						} else if (event.type === 'action_result') {
+							executionLogEntries = [
+								...executionLogEntries,
+								{
+									type: 'action',
+									iteration: Number(event.iteration),
+									agent: String(event.agent),
+									action: String(event.action),
+									resultSummary: resultSummary(event.result),
+									status:
+										event.result != null &&
+										typeof event.result === 'object' &&
+										'error' in event.result
+											? 'error'
+											: 'success'
+								}
+							];
+							actions = [
+								...actions,
+								{ agent: String(event.agent), action: String(event.action), result: event.result }
+							];
+							agentsUsed = [...new Set([...agentsUsed, String(event.agent)])];
+						} else if (event.type === 'iteration_complete') {
+							executionLogEntries = [
+								...executionLogEntries,
+								{
+									type: 'iteration_complete',
+									iteration: Number(event.iteration),
+									message: 'Iteration complete'
+								}
+							];
+						} else if (event.type === 'verification' && event.status) {
+							const status = event.status as { passed?: boolean; summary?: string };
+							executionLogEntries = [
+								...executionLogEntries,
+								{
+									type: 'verification',
+									iteration: Number(event.iteration),
+									message: status.summary ?? (status.passed ? 'Passed' : 'Needs retry')
+								}
+							];
+						} else if (event.type === 'done') {
+							response = String(event.finalResponse ?? '');
+							executionLogEntries = [
+								...executionLogEntries,
+								{ type: 'final', message: String(event.finalResponse ?? '') }
+							];
+							playbackText = extractPlaybackText(actions, response);
+						} else if (event.type === 'error' && event.message) {
+							response = `Error: ${event.message}`;
+							executionLogEntries = [
+								...executionLogEntries,
+								{ type: 'final', message: `Error: ${event.message}`, status: 'error' }
+							];
+						}
+					} catch {
+						// Skip malformed lines
 					}
 				}
-				const last = parseStreamEvent(buffer.trim());
-				if (last) {
-					if (last.agentsUsed !== undefined) agentsUsed = last.agentsUsed;
-					if (last.actions !== undefined) actions = last.actions;
-					if (last.appendText) response += last.appendText;
-					if (last.error) response = last.error;
+			}
+			// Flush remaining buffer
+			if (buffer.trim()) {
+				try {
+					const event = JSON.parse(buffer.trim()) as Record<string, unknown> & { type: string };
+					if (event.type === 'done') response = String(event.finalResponse ?? '');
+					if (event.type === 'error' && event.message) response = `Error: ${event.message}`;
+				} catch {
+					// ignore
 				}
-				isStreaming = false;
-				playbackText = extractPlaybackText(actions, response);
-			} else {
-				const data = await res.json();
-				response = data.response;
-				agentsUsed = data.agentsUsed || [];
-				actions = data.actions || [];
-				playbackText = extractPlaybackText(actions, response);
 			}
 		} catch (error) {
-			response = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+			if ((error as Error).name === 'AbortError') {
+				response = 'Stopped.';
+			} else {
+				response = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+			}
 		} finally {
 			loading = false;
+			isIterating = false;
+			abortController = null;
 		}
 	}
 
@@ -268,7 +335,25 @@
 		<button type="submit" disabled={loading}>
 			{loading ? 'Processing...' : 'Ask DailyAssist'}
 		</button>
+		{#if isIterating}
+			<button type="button" class="stop-btn" onclick={stopIteration} aria-label="Stop execution">
+				Stop
+			</button>
+		{/if}
 	</form>
+
+	{#if showPlan && currentPlan}
+		<PlanDisplay plan={currentPlan} onClose={clearPlanAndLog} />
+	{/if}
+	{#if showExecutionLog}
+		<ExecutionLog
+			logEntries={executionLogEntries}
+			isRunning={isIterating}
+			{currentIteration}
+			{maxIterations}
+			onClose={clearPlanAndLog}
+		/>
+	{/if}
 
 	{#if agentsUsed.length > 0}
 		<div class="agents-used">
@@ -423,6 +508,17 @@
 		background: hsl(210 20% 20%);
 		border-color: hsl(210 20% 30%);
 		color: hsl(0 0% 95%);
+	}
+
+	.stop-btn {
+		margin-left: 0.5rem;
+		background: hsl(0 60% 50%);
+	}
+	.stop-btn:hover {
+		background: hsl(0 60% 45%);
+	}
+	:global(body.dark) .stop-btn {
+		background: hsl(0 55% 45%);
 	}
 
 	button {
