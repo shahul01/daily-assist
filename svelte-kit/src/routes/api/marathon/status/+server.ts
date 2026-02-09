@@ -1,11 +1,16 @@
 import { json } from '@sveltejs/kit';
-import { marathonOrchestrator } from '$lib/agents/marathonOrchestrator';
 import { supabaseServer } from '$lib/server/supabase';
 import type { Database } from '$lib/types/database.types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RequestHandler } from './$types';
 
 type MarathonSessionRow = Database['public']['Tables']['marathon_sessions']['Row'];
+
+const TRANSPORT_DISCONNECTED = 'transport was disconnected';
+
+function isTransportDisconnected(e: unknown): boolean {
+	return e instanceof Error && e.message.includes(TRANSPORT_DISCONNECTED);
+}
 
 export const GET: RequestHandler = async ({ url }) => {
 	try {
@@ -14,7 +19,16 @@ export const GET: RequestHandler = async ({ url }) => {
 			return json({ error: 'Missing query: userId' }, { status: 400 });
 		}
 
-		const sessionId = marathonOrchestrator.getSessionId();
+		let sessionId: string | null = null;
+		try {
+			const { marathonOrchestrator } = await import('$lib/agents/marathonOrchestrator');
+			sessionId = marathonOrchestrator.getSessionId();
+		} catch (loadErr) {
+			if (isTransportDisconnected(loadErr)) {
+				return json({ error: 'Unavailable', message: 'Server is shutting down.' }, { status: 503 });
+			}
+			throw loadErr;
+		}
 
 		const client = supabaseServer as SupabaseClient<Database>;
 		const { data: sessions, error } = await client

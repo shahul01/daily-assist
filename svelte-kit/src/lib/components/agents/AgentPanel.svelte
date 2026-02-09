@@ -96,10 +96,34 @@
 		if (typeof result === 'object' && 'error' in (result as object)) return 'error';
 		if (typeof result === 'object' && 'message' in (result as object))
 			return String((result as { message: string }).message).slice(0, 60);
+		if (typeof result === 'object' && 'synthesizedAnswer' in (result as object))
+			return 'web search';
 		if (typeof result === 'object' && 'correctedText' in (result as object)) return 'corrected';
 		if (typeof result === 'object' && 'adjustedText' in (result as object)) return 'adjusted';
 		return 'ok';
 	}
+
+	/** Latest web search result from actions, for showing sources in chat. */
+	interface WebSearchResultLike {
+		query?: string;
+		synthesizedAnswer?: string;
+		sources?: Array<{ title: string; url: string; snippet?: string; summary?: string }>;
+		provider?: string;
+	}
+	const webSearchResult = $derived.by(() => {
+		for (let i = actions.length - 1; i >= 0; i--) {
+			const r = actions[i]?.result;
+			if (
+				r &&
+				typeof r === 'object' &&
+				'synthesizedAnswer' in r &&
+				Array.isArray((r as WebSearchResultLike).sources)
+			) {
+				return r as WebSearchResultLike;
+			}
+		}
+		return null;
+	});
 
 	function clearPlanAndLog() {
 		currentPlan = null;
@@ -373,6 +397,28 @@
 		</div>
 	{/if}
 
+	{#if webSearchResult && webSearchResult.sources?.length}
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- external source URLs -->
+		<div class="web-search-sources" role="region" aria-label="Web search sources">
+			<strong>Sources</strong>
+			<ul class="web-search-sources-list">
+				{#each webSearchResult.sources as source (source.url)}
+					<li>
+						<a
+							href={source.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="web-search-source-link"
+						>
+							{source.title || source.url}
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</div>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	{/if}
+
 	{#if playbackText && canUseTts}
 		<div class="tts-controls" role="group" aria-label="Text to speech">
 			<div class="tts-buttons">
@@ -577,6 +623,52 @@
 
 	:global(body.dark) .response strong {
 		color: hsl(210 60% 60%);
+	}
+
+	.web-search-sources {
+		margin-top: 1rem;
+		padding: 0.75rem 1rem;
+		background: hsl(210 20% 97%);
+		border-radius: 8px;
+		border: 1px solid hsl(210 20% 90%);
+		font-size: 0.9rem;
+	}
+
+	:global(body.dark) .web-search-sources {
+		background: hsl(210 20% 20%);
+		border-color: hsl(210 20% 28%);
+	}
+
+	.web-search-sources strong {
+		display: block;
+		margin-bottom: 0.5rem;
+		color: hsl(210 50% 35%);
+	}
+
+	:global(body.dark) .web-search-sources strong {
+		color: hsl(210 50% 65%);
+	}
+
+	.web-search-sources-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.web-search-source-link {
+		color: hsl(210 70% 45%);
+		text-decoration: none;
+	}
+
+	.web-search-source-link:hover {
+		text-decoration: underline;
+	}
+
+	:global(body.dark) .web-search-source-link {
+		color: hsl(210 70% 65%);
 	}
 
 	.tts-controls {

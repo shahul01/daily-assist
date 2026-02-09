@@ -63,6 +63,7 @@ interface PlannerActionParams {
 	description?: string;
 	location?: string;
 	days?: number;
+	query?: string;
 }
 
 /** Planner JSON shape from Gemini (exported for UI and API) */
@@ -149,7 +150,7 @@ export class Orchestrator {
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
 2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files. Use search_files, locate_document, list_directory.
+3. Find-It Agent: Search, navigate, locate files; or search the web for information. Use search_files, locate_document, list_directory, or web_search (params: query or text) for general web search.
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
 6. See-For-Me Agent: Real-time vision—scene description, object detection, danger detection, navigation. Use for: "What do you see?", "Is it safe?", "What's ahead?", "Read that sign". User must use the See-For-Me panel with camera; you can direct them to it.
@@ -287,7 +288,12 @@ What agents should I use? What actions should they take?`,
 						break;
 
 					case 'Find-It':
-						if (action.action === 'search_files') {
+						if (action.action === 'web_search') {
+							result = await findItAgent.webSearch({
+								query: (params?.query ?? params?.text ?? validatedInput.userInput) as string,
+								userId: validatedInput.userId
+							});
+						} else if (action.action === 'search_files') {
 							result = await findItAgent.searchFiles({
 								query: params?.text,
 								userId: validatedInput.userId
@@ -427,7 +433,7 @@ Provide a natural, helpful response to the user explaining what was done.`,
 ${memoryContext ? `\nUser context:\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
 2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files. Use search_files, locate_document, list_directory.
+3. Find-It Agent: Search, navigate, locate files; or search the web for information. Use search_files, locate_document, list_directory, or web_search (params: query or text) for general web search.
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
 6. See-For-Me Agent: Real-time vision—scene description, dangers, navigation. Use for "What do you see?", "Is it safe?". Direct user to the See-For-Me panel.
@@ -562,7 +568,12 @@ What agents should I use? What actions should they take?`,
 						break;
 
 					case 'Find-It':
-						if (action.action === 'search_files') {
+						if (action.action === 'web_search') {
+							result = await findItAgent.webSearch({
+								query: (params?.query ?? params?.text ?? validatedInput.userInput) as string,
+								userId: validatedInput.userId
+							});
+						} else if (action.action === 'search_files') {
 							result = await findItAgent.searchFiles({
 								query: params?.text,
 								userId: validatedInput.userId
@@ -719,7 +730,7 @@ Provide a natural, helpful response to the user explaining what was done.`;
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
 1. Read-To-Me Agent: Read text aloud, OCR images
 2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files. Use search_files, locate_document, list_directory.
+3. Find-It Agent: Search, navigate, locate files; or search the web for information. Use search_files, locate_document, list_directory, or web_search (params: query or text) for general web search.
 4. Remember-For-Me Agent: Create reminders, track tasks
 5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
 6. See-For-Me Agent: Real-time vision—scene description, dangers, navigation. Direct user to See-For-Me panel.
@@ -858,7 +869,12 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 							};
 							break;
 						case 'Find-It':
-							if (action.action === 'search_files') {
+							if (action.action === 'web_search') {
+								result = await findItAgent.webSearch({
+									query: (params?.query ?? params?.text ?? validatedInput.userInput) as string,
+									userId: validatedInput.userId
+								});
+							} else if (action.action === 'search_files') {
 								result = await findItAgent.searchFiles({
 									query: params?.text,
 									userId: validatedInput.userId

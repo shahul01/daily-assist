@@ -28,9 +28,19 @@ export const POST: RequestHandler = async ({ request }) => {
 			});
 			return json(result);
 		}
+		if (action === 'web_search') {
+			const result = await findItAgent.webSearch({
+				query: typeof body.query === 'string' ? body.query : '',
+				userId: typeof body.userId === 'string' ? body.userId : undefined
+			});
+			return json(result);
+		}
 
 		return json(
-			{ error: 'Missing or invalid action: use search_files, locate_document, or list_directory' },
+			{
+				error:
+					'Missing or invalid action: use search_files, locate_document, list_directory, or web_search'
+			},
 			{ status: 400 }
 		);
 	} catch (error) {
