@@ -67,7 +67,10 @@
 	{#if loading}
 		<p class="text-sm text-[hsl(var(--muted-foreground))]">Loading…</p>
 	{:else if error}
-		<p class="text-sm text-red-600 dark:text-red-400">{error}</p>
+		<p class="text-sm text-red-600 dark:text-red-400" role="alert">
+			<span class="font-medium">Error:</span>
+			{error}
+		</p>
 	{:else}
 		<div class="space-y-2 text-sm">
 			<p>

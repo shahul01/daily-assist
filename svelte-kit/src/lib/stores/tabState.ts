@@ -3,7 +3,7 @@
  * Actual state is held by +page.svelte and synced with URL search params.
  */
 
-export type PrimaryTab = 'home' | 'chat' | 'tools' | 'dashboard';
+export type PrimaryTab = 'home' | 'chat' | 'tools' | 'dashboard' | 'usage';
 export type FunctionGroup = 'communication' | 'sense' | 'memory';
 export type AgentId = 'read' | 'write' | 'say' | 'create' | 'see' | 'hear' | 'remember';
 
@@ -17,7 +17,8 @@ export const PRIMARY_TABS: Array<{ id: PrimaryTab; label: string; icon: string }
 	{ id: 'home', label: 'Home', icon: '🏠' },
 	{ id: 'chat', label: 'Chat', icon: '💬' },
 	{ id: 'tools', label: 'Tools', icon: '🔧' },
-	{ id: 'dashboard', label: 'Dashboard', icon: '📊' }
+	{ id: 'dashboard', label: 'Dashboard', icon: '📊' },
+	{ id: 'usage', label: 'Usage', icon: '📈' }
 ];
 
 export const FUNCTION_GROUPS: Array<{ id: FunctionGroup; label: string; icon: string }> = [

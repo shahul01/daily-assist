@@ -182,10 +182,16 @@
 		</div>
 
 		{#if error}
-			<p class="mb-2 text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+			<p class="mb-2 text-sm text-red-600 dark:text-red-400" role="alert">
+				<span class="font-medium">Error:</span>
+				{error}
+			</p>
 		{/if}
 		{#if success}
-			<p class="mb-2 text-sm text-green-600 dark:text-green-400" role="status">{success}</p>
+			<p class="mb-2 text-sm text-green-600 dark:text-green-400" role="status">
+				<span class="font-medium">Success:</span>
+				{success}
+			</p>
 		{/if}
 
 		{#if activeTab === 'reminders'}

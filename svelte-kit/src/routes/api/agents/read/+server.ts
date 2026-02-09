@@ -1,10 +1,21 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { readAgent } from '$lib/agents/readAgent';
+import { supabaseServer } from '$lib/server/supabase';
+import { logAgentUsage } from '$lib/server/agentUsageLog';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '$lib/types/database.types';
+
+const client = supabaseServer as SupabaseClient<Database>;
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = (await request.json()) as Record<string, unknown>;
+		const userId = typeof body.userId === 'string' && body.userId ? body.userId : null;
+
+		function logRead(): void {
+			if (userId) void logAgentUsage(client, userId, 'read');
+		}
 
 		// Text reading
 		if (body.text && typeof body.text === 'string') {
@@ -14,6 +25,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				format: (body.format as 'plain' | 'structured') || 'plain',
 				language: typeof body.language === 'string' ? body.language : undefined
 			});
+			logRead();
 			return json(result);
 		}
 
@@ -21,18 +33,21 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (body.imageBase64 && typeof body.imageBase64 === 'string') {
 			const mimeType = (body.mimeType as string) || 'image/jpeg';
 			const result = await readAgent.readImage(body.imageBase64, mimeType);
+			logRead();
 			return json({ description: result });
 		}
 
 		// PDF reading
 		if (body.pdfBase64 && typeof body.pdfBase64 === 'string') {
 			const spokenText = await readAgent.readPDF(body.pdfBase64);
+			logRead();
 			return json({ spokenText, description: spokenText });
 		}
 
 		// Document intelligence: analyze PDF (sections, tables, key points)
 		if (body.analyzePdf && typeof body.analyzePdf === 'string') {
 			const analysis = await readAgent.analyzePDF(body.analyzePdf);
+			logRead();
 			return json(analysis);
 		}
 
@@ -40,6 +55,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (body.extractTables && typeof body.extractTables === 'string') {
 			const mimeType = (body.extractTablesMimeType as string) || 'image/jpeg';
 			const tables = await readAgent.extractTables(body.extractTables, mimeType);
+			logRead();
 			return json({ tables });
 		}
 
@@ -47,6 +63,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (body.analyzeForm && typeof body.analyzeForm === 'string') {
 			const mimeType = (body.analyzeFormMimeType as string) || 'image/jpeg';
 			const form = await readAgent.analyzeForm(body.analyzeForm, mimeType);
+			logRead();
 			return json(form);
 		}
 
@@ -54,6 +71,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (body.describeChart && typeof body.describeChart === 'string') {
 			const mimeType = (body.describeChartMimeType as string) || 'image/jpeg';
 			const description = await readAgent.describeChart(body.describeChart, mimeType);
+			logRead();
 			return json({ description });
 		}
 
@@ -61,6 +79,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (body.cameraFrame && typeof body.cameraFrame === 'string') {
 			const mimeType = (body.cameraFrameMimeType as string) || 'image/jpeg';
 			const text = await readAgent.readVisibleText(body.cameraFrame, mimeType);
+			logRead();
 			return json({ text });
 		}
 

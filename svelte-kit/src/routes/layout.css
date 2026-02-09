@@ -1,1 +1,105 @@
 @import 'tailwindcss';
+
+/* Make `dark:` utilities respect the `.dark` class instead of OS media */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Base app theme (light mode) */
+html,
+body {
+	min-height: 100%;
+	background: hsl(210 20% 96%);
+	color: hsl(210 20% 15%);
+}
+
+body {
+	font-family:
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		sans-serif;
+}
+
+/* Dark mode shell */
+html.dark,
+body.dark {
+	background: hsl(210 20% 8%);
+	color: hsl(210 20% 92%);
+}
+
+/* Links */
+a {
+	color: hsl(210 70% 40%);
+}
+body.dark a {
+	color: hsl(210 70% 70%);
+}
+
+/* Agent panels: keep light-style surfaces but respect dark mode */
+.read-agent,
+.write-agent,
+.see-agent,
+.say-agent,
+.hear-agent,
+.remember-agent,
+.create-agent {
+	background: hsl(0 0% 100%);
+	color: hsl(210 15% 15%);
+}
+
+body.dark .read-agent,
+body.dark .write-agent,
+body.dark .see-agent,
+body.dark .say-agent,
+body.dark .hear-agent,
+body.dark .remember-agent,
+body.dark .create-agent {
+	background: hsl(210 20% 14%);
+	color: hsl(210 15% 92%);
+}
+
+/* Reduced motion: single global rule. No !important so page/component <style> can override. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms;
+		animation-iteration-count: 1;
+		transition-duration: 0.01ms;
+	}
+}
+html.a11y-reduce-motion *,
+html.a11y-reduce-motion *::before,
+html.a11y-reduce-motion *::after {
+	animation-duration: 0.01ms;
+	animation-iteration-count: 1;
+	transition-duration: 0.01ms;
+}
+
+/* User chose "Off" for reduce motion: allow full motion (overrides media query via later rule). */
+html.a11y-allow-motion *,
+html.a11y-allow-motion *::before,
+html.a11y-allow-motion *::after {
+	animation-duration: revert;
+	animation-iteration-count: revert;
+	transition-duration: revert;
+}
+
+/* Accessibility: larger base font (overridable by page styles) */
+html.a11y-font-large {
+	font-size: 118.75%;
+}
+@media (min-width: 640px) {
+	html.a11y-font-large {
+		font-size: 125%;
+	}
+}
+
+/* High contrast focus / controls (stronger focus ring) */
+html.a11y-high-contrast :focus-visible {
+	outline: 3px solid hsl(210 80% 40%);
+	outline-offset: 2px;
+}
+html.a11y-high-contrast.dark :focus-visible {
+	outline-color: hsl(210 70% 55%);
+}

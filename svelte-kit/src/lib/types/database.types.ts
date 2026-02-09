@@ -848,6 +848,27 @@ export interface Database {
 				};
 				Relationships: [];
 			};
+			agent_usage_log: {
+				Row: {
+					id: string;
+					user_id: string;
+					agent_name: string;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					user_id: string;
+					agent_name: string;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					user_id?: string;
+					agent_name?: string;
+					created_at?: string;
+				};
+				Relationships: [];
+			};
 		};
 		Functions: {
 			match_memories: {

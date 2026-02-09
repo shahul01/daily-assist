@@ -823,6 +823,9 @@
 	{/if}
 
 	{#if error}
-		<p class="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
+		<p class="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">
+			<span class="font-medium">Error:</span>
+			{error}
+		</p>
 	{/if}
 </div>
