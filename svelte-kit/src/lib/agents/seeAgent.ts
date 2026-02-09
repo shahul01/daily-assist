@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { callGeminiWithVision, parseGeminiJson } from '$lib/utils/gemini';
+import { callGeminiWithVision, callGeminiWithInlineData, parseGeminiJson } from '$lib/utils/gemini';
 
 /** Danger types for accessibility / safety */
 export const DANGER_TYPES = [
@@ -39,6 +39,21 @@ export interface NavigationInfo {
 	obstacles: Array<{ description: string; position: string; distance?: string }>;
 	clearPath: boolean;
 	guidance?: string;
+}
+
+/** Medicine identification from pill or label image (safety-critical). */
+export interface MedicineIdentification {
+	pillDescription?: {
+		shape: string;
+		color: string;
+		imprintCodes: string[];
+	};
+	labelText?: string;
+	brandName?: string;
+	genericName?: string;
+	expirationDate?: string;
+	confidence: 'high' | 'medium' | 'low';
+	safetyWarnings?: string[];
 }
 
 export interface SceneAnalysis {
@@ -141,6 +156,55 @@ function buildAnalysisPrompt(mode: SeeAgentMode, detailLevel: 'brief' | 'detaile
  * Thinking level: LOW for speed.
  */
 export class SeeAgent {
+	/**
+	 * Identify medicine from pill or packaging image. Use high thinking for safety.
+	 */
+	async identifyMedicine(
+		imageBase64: string,
+		mimeType = 'image/jpeg'
+	): Promise<MedicineIdentification> {
+		const prompt = `You are helping identify medicine from a pill or packaging image for user safety.
+Analyze the image and return a single JSON object (no markdown, no code fences) with:
+- pillDescription: optional { shape, color, imprintCodes: string[] } if a pill is visible
+- labelText: any visible text on packaging or label (OCR)
+- brandName: brand name if visible
+- genericName: generic drug name if visible
+- expirationDate: if visible on packaging
+- confidence: "high" | "medium" | "low" based on clarity and completeness
+- safetyWarnings: string[] of any visible warnings (e.g. "Do not drive", "Take with food")
+If nothing medicine-related is clearly visible, set confidence to "low" and omit other fields where unknown.`;
+		const raw = await callGeminiWithInlineData(prompt, imageBase64, mimeType, {
+			thinkingLevel: 'high',
+			model: 'gemini-3-pro-preview'
+		});
+		const parsed = parseGeminiJson(raw) as Record<string, unknown>;
+		const pillDesc = parsed.pillDescription as
+			| { shape?: string; color?: string; imprintCodes?: string[] }
+			| undefined;
+		return {
+			pillDescription: pillDesc
+				? {
+						shape: typeof pillDesc.shape === 'string' ? pillDesc.shape : '',
+						color: typeof pillDesc.color === 'string' ? pillDesc.color : '',
+						imprintCodes: Array.isArray(pillDesc.imprintCodes)
+							? pillDesc.imprintCodes.map(String)
+							: []
+					}
+				: undefined,
+			labelText: typeof parsed.labelText === 'string' ? parsed.labelText : undefined,
+			brandName: typeof parsed.brandName === 'string' ? parsed.brandName : undefined,
+			genericName: typeof parsed.genericName === 'string' ? parsed.genericName : undefined,
+			expirationDate: typeof parsed.expirationDate === 'string' ? parsed.expirationDate : undefined,
+			confidence:
+				parsed.confidence === 'high' || parsed.confidence === 'medium'
+					? (parsed.confidence as 'high' | 'medium')
+					: 'low',
+			safetyWarnings: Array.isArray(parsed.safetyWarnings)
+				? (parsed.safetyWarnings as string[]).filter((s) => typeof s === 'string')
+				: undefined
+		};
+	}
+
 	/**
 	 * Analyze a single camera frame and return structured scene analysis.
 	 */

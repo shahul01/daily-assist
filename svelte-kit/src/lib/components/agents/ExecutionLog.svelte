@@ -1,11 +1,20 @@
 <script lang="ts">
 	export interface LogEntry {
-		type: 'action' | 'iteration_start' | 'iteration_complete' | 'verification' | 'final';
+		type:
+			| 'action'
+			| 'iteration_start'
+			| 'iteration_complete'
+			| 'verification'
+			| 'final'
+			| 'parallel_start'
+			| 'parallel_complete';
 		iteration?: number;
 		agent?: string;
 		action?: string;
 		resultSummary?: string;
 		message?: string;
+		/** For parallel_start: comma-separated agent/action labels */
+		parallelActions?: string;
 		status?: 'running' | 'success' | 'error';
 		timestamp?: string;
 	}
@@ -42,6 +51,14 @@
 		if (entry.type === 'verification') {
 			return entry.message ?? 'Verification';
 		}
+		if (entry.type === 'parallel_start') {
+			return entry.parallelActions
+				? `Parallel: ${entry.parallelActions}`
+				: 'Parallel batch started';
+		}
+		if (entry.type === 'parallel_complete') {
+			return entry.message ?? 'Parallel batch complete';
+		}
 		if (entry.type === 'final') {
 			return entry.message ?? 'Done';
 		}
@@ -57,7 +74,11 @@
 					? ' log-entry-success'
 					: '';
 		const type = entry.type === 'final' ? ' log-entry-final' : '';
-		return base + status + type;
+		const parallel =
+			entry.type === 'parallel_start' || entry.type === 'parallel_complete'
+				? ' log-entry-parallel'
+				: '';
+		return base + status + type + parallel;
 	}
 
 	$effect(() => {
@@ -234,6 +255,13 @@
 	}
 	:global(body.dark) .log-entry-final {
 		border-top-color: hsl(210 30% 28%);
+	}
+	.log-entry-parallel {
+		border-left: 3px solid hsl(210 50% 55%);
+		padding-left: 0.5rem;
+	}
+	:global(body.dark) .log-entry-parallel {
+		border-left-color: hsl(210 55% 50%);
 	}
 	.log-iteration-marker {
 		font-weight: 600;

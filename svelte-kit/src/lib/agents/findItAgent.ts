@@ -52,6 +52,24 @@ export interface WebSearchResult {
 	provider: 'brave' | 'duckduckgo';
 }
 
+export const DrugSearchInputSchema = z.object({
+	medicineName: z.string().min(1, 'Medicine name is required'),
+	context: z.string().optional(),
+	userId: z.string().optional()
+});
+export type DrugSearchInput = z.infer<typeof DrugSearchInputSchema>;
+
+export interface DrugInfoResult {
+	medicineName: string;
+	commonUses: string[];
+	sideEffects: string[];
+	interactions: string[];
+	dangerLevel: 'low' | 'medium' | 'high' | 'critical';
+	emergencyIndicators: string[];
+	synthesizedSummary: string;
+	webSources?: WebSearchSource[];
+}
+
 export class FindItAgent {
 	async searchFiles(input: SearchFilesInput): Promise<FindItResult> {
 		SearchFilesInputSchema.parse(input);
@@ -145,6 +163,76 @@ export class FindItAgent {
 			synthesizedAnswer,
 			sources,
 			provider: searchResponse.provider
+		};
+	}
+
+	/**
+	 * Drug information for safety: uses, side effects, interactions, danger level.
+	 * Uses LLM with high thinking; optionally augments with web search.
+	 */
+	async searchDrugInfo(input: DrugSearchInput): Promise<DrugInfoResult> {
+		const { medicineName, context } = DrugSearchInputSchema.parse(input);
+		let webContext = '';
+		let webSources: WebSearchSource[] = [];
+		try {
+			const web = await this.webSearch({
+				query: `${medicineName} drug side effects uses`,
+				userId: input.userId
+			});
+			webContext = web.synthesizedAnswer;
+			webSources = web.sources;
+		} catch {
+			// Proceed with LLM only
+		}
+
+		const prompt = `You are providing drug safety information. Medicine/drug name: "${medicineName}"${context ? `\nAdditional context: ${context}` : ''}${webContext ? `\n\nWeb search summary (use to inform your answer):\n${webContext}` : ''}
+
+Return a JSON object only (no markdown, no code fences) with:
+- commonUses: string[] (brief)
+- sideEffects: string[]
+- interactions: string[] (with other drugs or substances)
+- dangerLevel: "low" | "medium" | "high" | "critical" (overall risk for misuse or emergency)
+- emergencyIndicators: string[] (when to seek emergency help)
+- synthesizedSummary: string (2-3 sentences for the user)
+If uncertain, use dangerLevel "medium" and note uncertainty in synthesizedSummary.`;
+		const res = await callGemini({
+			prompt,
+			model: 'gemini-3-pro-preview',
+			thinkingLevel: 'high'
+		});
+		const text = res?.text ?? '{}';
+		const start = text.indexOf('{');
+		const end = text.lastIndexOf('}') + 1;
+		const parsed =
+			start >= 0 && end > start
+				? (JSON.parse(text.slice(start, end)) as Record<string, unknown>)
+				: {};
+
+		return {
+			medicineName,
+			commonUses: Array.isArray(parsed.commonUses)
+				? (parsed.commonUses as string[]).filter((s) => typeof s === 'string')
+				: [],
+			sideEffects: Array.isArray(parsed.sideEffects)
+				? (parsed.sideEffects as string[]).filter((s) => typeof s === 'string')
+				: [],
+			interactions: Array.isArray(parsed.interactions)
+				? (parsed.interactions as string[]).filter((s) => typeof s === 'string')
+				: [],
+			dangerLevel:
+				parsed.dangerLevel === 'critical' ||
+				parsed.dangerLevel === 'high' ||
+				parsed.dangerLevel === 'medium'
+					? (parsed.dangerLevel as 'low' | 'medium' | 'high' | 'critical')
+					: 'low',
+			emergencyIndicators: Array.isArray(parsed.emergencyIndicators)
+				? (parsed.emergencyIndicators as string[]).filter((s) => typeof s === 'string')
+				: [],
+			synthesizedSummary:
+				typeof parsed.synthesizedSummary === 'string'
+					? parsed.synthesizedSummary
+					: 'Unable to retrieve drug information. Consult a doctor or pharmacist.',
+			webSources: webSources.length > 0 ? webSources : undefined
 		};
 	}
 }

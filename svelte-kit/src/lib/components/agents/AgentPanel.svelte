@@ -46,6 +46,8 @@
 	let ttsVolume = $state(1);
 	let showTtsOptions = $state(false);
 	let isStreaming = $state(false);
+	/** When set, show marathon suggestion with Accept/Decline. */
+	let marathonSuggestion = $state<{ reasoning: string; userGuidance?: string } | null>(null);
 
 	if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 		canUseTts = true;
@@ -207,6 +209,7 @@
 		actions = [];
 		playbackText = '';
 		clearPlanAndLog();
+		marathonSuggestion = null;
 		abortController = new AbortController();
 
 		try {
@@ -216,7 +219,8 @@
 				body: JSON.stringify({
 					userInput: userInput.trim(),
 					userId: uid,
-					maxIterations
+					maxIterations,
+					allowMarathonSuggestion: true
 				}),
 				signal: abortController.signal
 			});
@@ -306,6 +310,36 @@
 								...executionLogEntries,
 								{ type: 'final', message: `Error: ${event.message}`, status: 'error' }
 							];
+						} else if (event.type === 'marathon_suggestion' && event.reasoning) {
+							marathonSuggestion = {
+								reasoning: String(event.reasoning),
+								userGuidance: event.userGuidance != null ? String(event.userGuidance) : undefined
+							};
+							executionLogEntries = [
+								...executionLogEntries,
+								{ type: 'final', message: 'Marathon suggested for this task.', status: 'running' }
+							];
+						} else if (event.type === 'parallel_start' && Array.isArray(event.actions)) {
+							const labels = (event.actions as Array<{ agent: string; action: string }>).map(
+								(a) => `${a.agent} ${a.action}`
+							);
+							executionLogEntries = [
+								...executionLogEntries,
+								{
+									type: 'parallel_start',
+									iteration: Number(event.iteration),
+									parallelActions: labels.join(', ')
+								}
+							];
+						} else if (event.type === 'parallel_complete') {
+							executionLogEntries = [
+								...executionLogEntries,
+								{
+									type: 'parallel_complete',
+									iteration: Number(event.iteration),
+									message: 'Parallel batch complete'
+								}
+							];
 						}
 					} catch {
 						// Skip malformed lines
@@ -338,6 +372,24 @@
 	const thoughtFlowItems = $derived(
 		actions.map((a) => ({ context: String(a.action), agent_used: a.agent }))
 	);
+
+	async function acceptMarathon() {
+		const uid = userId ?? (await getOrCreateUserId());
+		if (!uid) return;
+		try {
+			await fetch('/api/marathon/start', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ userId: uid })
+			});
+		} finally {
+			marathonSuggestion = null;
+		}
+	}
+
+	function declineMarathon() {
+		marathonSuggestion = null;
+	}
 </script>
 
 <div class="agent-panel">
@@ -365,6 +417,19 @@
 			</button>
 		{/if}
 	</form>
+
+	{#if marathonSuggestion}
+		<div class="marathon-suggestion" role="alert">
+			<p class="marathon-suggestion-reasoning">{marathonSuggestion.reasoning}</p>
+			{#if marathonSuggestion.userGuidance}
+				<p class="marathon-suggestion-guidance">{marathonSuggestion.userGuidance}</p>
+			{/if}
+			<div class="marathon-suggestion-actions">
+				<button type="button" onclick={acceptMarathon}>Enable Marathon</button>
+				<button type="button" class="secondary" onclick={declineMarathon}>No thanks</button>
+			</div>
+		</div>
+	{/if}
 
 	{#if showPlan && currentPlan}
 		<PlanDisplay plan={currentPlan} onClose={clearPlanAndLog} />
@@ -601,6 +666,36 @@
 	:global(body.dark) .agents-used {
 		background: hsl(210 60% 20%);
 		color: hsl(210 60% 70%);
+	}
+
+	.marathon-suggestion {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: hsl(210 30% 96%);
+		border-radius: 8px;
+		border: 1px solid hsl(210 50% 80%);
+	}
+	:global(body.dark) .marathon-suggestion {
+		background: hsl(210 25% 18%);
+		border-color: hsl(210 40% 35%);
+	}
+	.marathon-suggestion-reasoning {
+		margin: 0 0 0.5rem;
+		font-size: 0.95rem;
+	}
+	.marathon-suggestion-guidance {
+		margin: 0 0 0.75rem;
+		font-size: 0.9rem;
+		opacity: 0.9;
+	}
+	.marathon-suggestion-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.marathon-suggestion-actions button.secondary {
+		background: transparent;
+		color: inherit;
+		border: 1px solid currentColor;
 	}
 
 	.response {
