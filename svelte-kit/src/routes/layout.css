@@ -1,5 +1,63 @@
 @import 'tailwindcss';
 
+/* Make `dark:` utilities respect the `.dark` class instead of OS media */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Base app theme (light mode) */
+html,
+body {
+	min-height: 100%;
+	background: hsl(210 20% 96%);
+	color: hsl(210 20% 15%);
+}
+
+body {
+	font-family:
+		system-ui,
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		sans-serif;
+}
+
+/* Dark mode shell */
+html.dark,
+body.dark {
+	background: hsl(210 20% 8%);
+	color: hsl(210 20% 92%);
+}
+
+/* Links */
+a {
+	color: hsl(210 70% 40%);
+}
+body.dark a {
+	color: hsl(210 70% 70%);
+}
+
+/* Agent panels: keep light-style surfaces but respect dark mode */
+.read-agent,
+.write-agent,
+.see-agent,
+.say-agent,
+.hear-agent,
+.remember-agent,
+.create-agent {
+	background: hsl(0 0% 100%);
+	color: hsl(210 15% 15%);
+}
+
+body.dark .read-agent,
+body.dark .write-agent,
+body.dark .see-agent,
+body.dark .say-agent,
+body.dark .hear-agent,
+body.dark .remember-agent,
+body.dark .create-agent {
+	background: hsl(210 20% 14%);
+	color: hsl(210 15% 92%);
+}
+
 /* Reduced motion: single global rule. No !important so page/component <style> can override. */
 @media (prefers-reduced-motion: reduce) {
 	*,

@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { accessibilityStore } from '$lib/stores/accessibilityStore';
 	import type { FontSizePreference, ReduceMotionPreference } from '$lib/stores/accessibilityStore';
+	import { themeStore } from '$lib/stores/themeStore';
+	import type { ThemePreference } from '$lib/stores/themeStore';
 
 	interface Props {
 		open: boolean;
@@ -18,11 +20,21 @@
 		reduceMotion: 'system' as ReduceMotionPreference
 	});
 
+	let themeState = $state({
+		mode: 'system' as ThemePreference
+	});
+
 	onMount(() => {
-		const unsub = accessibilityStore.subscribe((s) => {
+		const unsubA11y = accessibilityStore.subscribe((s) => {
 			a11yState = { ...s };
 		});
-		return unsub;
+		const unsubTheme = themeStore.subscribe((s) => {
+			themeState = { mode: s.mode };
+		});
+		return () => {
+			unsubA11y();
+			unsubTheme();
+		};
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -37,6 +49,10 @@
 	}
 	function setReduceMotion(v: ReduceMotionPreference) {
 		accessibilityStore.setReduceMotion(v);
+	}
+
+	function setThemeMode(v: ThemePreference) {
+		themeStore.setMode(v);
 	}
 </script>
 
@@ -95,7 +111,41 @@
 						class="panel"
 						hidden={activeTab !== 'general'}
 					>
-						<p class="muted">More options coming soon.</p>
+						<div class="setting-group" role="group" aria-label="Theme">
+							<span class="setting-label">Theme</span>
+							<div class="option-row">
+								<button
+									type="button"
+									class="option-btn"
+									class:option-active={themeState.mode === 'system'}
+									onclick={() => setThemeMode('system')}
+									aria-pressed={themeState.mode === 'system'}
+								>
+									System
+								</button>
+								<button
+									type="button"
+									class="option-btn"
+									class:option-active={themeState.mode === 'light'}
+									onclick={() => setThemeMode('light')}
+									aria-pressed={themeState.mode === 'light'}
+								>
+									Light
+								</button>
+								<button
+									type="button"
+									class="option-btn"
+									class:option-active={themeState.mode === 'dark'}
+									onclick={() => setThemeMode('dark')}
+									aria-pressed={themeState.mode === 'dark'}
+								>
+									Dark
+								</button>
+							</div>
+							<p class="setting-desc">
+								System follows your device theme. Light and Dark override it for this app.
+							</p>
+						</div>
 					</div>
 				{:else}
 					<div
