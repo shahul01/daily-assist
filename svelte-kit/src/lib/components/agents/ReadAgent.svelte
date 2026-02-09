@@ -3,6 +3,11 @@
 	import { fileToBase64 } from '$lib/utils/pdf';
 	import type { SpeechRate } from '$lib/utils/speech';
 
+	interface Props {
+		userId?: string;
+	}
+	let { userId = '' }: Props = $props();
+
 	let textInput = $state('');
 	let output = $state('');
 	let loading = $state(false);
@@ -28,7 +33,8 @@
 					text: textInput,
 					speed,
 					format: 'plain',
-					language: selectedLang
+					language: selectedLang,
+					...(userId && { userId })
 				})
 			});
 			const data = await res.json();
@@ -57,7 +63,10 @@
 			const res = await fetch('/api/agents/read', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(isPdf ? { pdfBase64: base64 } : { imageBase64: base64, mimeType })
+				body: JSON.stringify({
+					...(isPdf ? { pdfBase64: base64 } : { imageBase64: base64, mimeType }),
+					...(userId && { userId })
+				})
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.message ?? data.error ?? 'Read failed');

@@ -21,6 +21,7 @@
 	import PageHero from '$lib/components/page/PageHero.svelte';
 	import HomeFeatures from '$lib/components/page/HomeFeatures.svelte';
 	import DashboardPanel from '$lib/components/page/DashboardPanel.svelte';
+	import UsagePanel from '$lib/components/page/UsagePanel.svelte';
 	import AgentTabContent from '$lib/components/page/AgentTabContent.svelte';
 	import TabPlaceholder from '$lib/components/page/TabPlaceholder.svelte';
 	import SettingsModal from '$lib/components/settings/SettingsModal.svelte';
@@ -105,6 +106,7 @@
 	const pageTitle = $derived.by(() => {
 		if (tabState.primary === 'home') return 'DailyAssist - AI Companion for Accessibility';
 		if (tabState.primary === 'dashboard') return 'Dashboard - DailyAssist';
+		if (tabState.primary === 'usage') return 'Usage - DailyAssist';
 		if (tabState.primary === 'chat' && tabState.agent)
 			return `${getAgentLabel(tabState.agent)} - DailyAssist`;
 		if (tabState.primary === 'tools' && tabState.agent)
@@ -144,6 +146,8 @@
 			<HomeFeatures />
 		{:else if tabState.primary === 'dashboard'}
 			<DashboardPanel {userId} />
+		{:else if tabState.primary === 'usage'}
+			<UsagePanel {userId} />
 		{:else if showAgentContent && currentAgent}
 			<AgentTabContent agent={currentAgent} {userId} />
 		{:else if tabState.primary === 'chat' && !tabState.group}

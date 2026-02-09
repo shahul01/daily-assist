@@ -32,7 +32,7 @@
 				detection.
 			</p>
 			<div class="read-widgets">
-				<ReadAgent />
+				<ReadAgent {userId} />
 				<CameraReader />
 			</div>
 		</section>
