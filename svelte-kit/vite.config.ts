@@ -14,6 +14,7 @@ export default defineConfig({
 	test: {
 		expect: { requireAssertions: true },
 		teardownTimeout: 5000,
+		testTimeout: 60000,
 
 		projects: [
 			{
@@ -25,10 +26,18 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						provider: playwright(),
-						instances: [{ browser: 'chromium', headless: true }]
+						instances: [
+							{
+								browser: 'chromium',
+								headless: process.env.VITEST_SHOW_BROWSER !== '1'
+							}
+						]
 					},
 
-					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+					include: [
+						'src/**/*.svelte.{test,spec}.{js,ts}',
+						'src/tests/e2e/**/*.browser.{test,spec}.{js,ts}'
+					],
 					exclude: ['src/lib/server/**']
 				}
 			},
@@ -40,7 +49,11 @@ export default defineConfig({
 					name: 'server',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+					exclude: [
+						'src/**/*.svelte.{test,spec}.{js,ts}',
+						'src/tests/e2e/**/*.browser.{test,spec}.{js,ts}'
+					],
+					testTimeout: 90000
 				}
 			}
 		]
