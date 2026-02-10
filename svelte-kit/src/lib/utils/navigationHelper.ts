@@ -14,7 +14,10 @@ export const AGENT_LABEL_TO_ID: Record<string, AgentId> = {
 };
 
 /** Agent ID to tab/group mapping for Tools tab. */
-const AGENT_TO_ROUTE: Record<AgentId, { primary: 'tools' | 'chat'; group: string; agent: AgentId }> = {
+const AGENT_TO_ROUTE: Record<
+	AgentId,
+	{ primary: 'tools' | 'chat'; group: string; agent: AgentId }
+> = {
 	read: { primary: 'tools', group: 'communication', agent: 'read' },
 	write: { primary: 'tools', group: 'communication', agent: 'write' },
 	say: { primary: 'tools', group: 'communication', agent: 'say' },
@@ -60,5 +63,6 @@ export const PANEL_INSTRUCTIONS = {
 	viewDrugInfo:
 		'View detailed drug information in the Find-It panel (click the link below to open it).',
 	speakMessage: 'To hear this message spoken: open Say-For-Me panel (Tools → Communication → Say).',
-	doctorLetter: 'Review or send the doctor letter in Write-For-Me panel (Tools → Communication → Write).'
+	doctorLetter:
+		'Review or send the doctor letter in Write-For-Me panel (Tools → Communication → Write).'
 } as const;

@@ -166,15 +166,15 @@
 </main>
 
 <OrchestratorDrawer
-		returnResultId={$page.url.searchParams.get('resultId') ?? undefined}
-		onClearReturnResult={() => {
-			const params = tabStateToSearchParams(tabState);
-			// eslint-disable-next-line svelte/no-navigation-without-resolve -- clear return result from URL
-			goto(params.toString() ? `?${params.toString()}` : window.location.pathname, {
-				replaceState: true
-			});
-		}}
-	/>
+	returnResultId={$page.url.searchParams.get('resultId') ?? undefined}
+	onClearReturnResult={() => {
+		const params = tabStateToSearchParams(tabState);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- clear return result from URL
+		goto(params.toString() ? `?${params.toString()}` : window.location.pathname, {
+			replaceState: true
+		});
+	}}
+/>
 <SettingsModal open={settingsOpen} onclose={() => (settingsOpen = false)} />
 
 <style>

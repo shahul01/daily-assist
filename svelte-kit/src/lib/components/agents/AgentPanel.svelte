@@ -45,9 +45,7 @@
 	let userId = $state<string | null>(null);
 
 	/** Stored result when returning from a panel (e.g. Find-It Send to Chat). */
-	const returnResult = $derived.by(() =>
-		returnResultId ? getAgentResult(returnResultId) : null
-	);
+	const returnResult = $derived.by(() => (returnResultId ? getAgentResult(returnResultId) : null));
 
 	/** Summary of return result for display in chat (drug, scene, search, or generic). */
 	const returnResultSummary = $derived.by(() => {
@@ -64,8 +62,8 @@
 		}
 		if (r.action === 'scene_analysis' && typeof res.description === 'string') {
 			const dangers = Array.isArray(res.dangers)
-				? (res.dangers as Array<{ warning?: string; location?: string }>).map(
-						(d) => `${d.warning ?? ''} ${d.location ?? ''}`.trim()
+				? (res.dangers as Array<{ warning?: string; location?: string }>).map((d) =>
+						`${d.warning ?? ''} ${d.location ?? ''}`.trim()
 					)
 				: [];
 			return {
@@ -81,7 +79,8 @@
 				answer: String(res.synthesizedAnswer)
 			};
 		}
-		if (res.message && typeof res.message === 'string') return { type: 'message' as const, text: res.message };
+		if (res.message && typeof res.message === 'string')
+			return { type: 'message' as const, text: res.message };
 		if (res.synthesizedAnswer && typeof res.synthesizedAnswer === 'string')
 			return { type: 'message' as const, text: (res.synthesizedAnswer as string).slice(0, 300) };
 		return { type: 'message' as const, text: '' };
@@ -291,7 +290,6 @@
 	}
 
 	async function runSubmit() {
-
 		const uid = userId ?? (await getOrCreateUserId());
 		if (uid && !userId) userId = uid;
 		if (!uid) {
@@ -387,11 +385,7 @@
 									userId
 								});
 								const agentId = AGENT_LABEL_TO_ID[String(event.agent)];
-								if (agentId)
-									navigationResultIds = [
-										...navigationResultIds,
-										{ agentId, resultId }
-									];
+								if (agentId) navigationResultIds = [...navigationResultIds, { agentId, resultId }];
 							}
 						} else if (event.type === 'iteration_complete') {
 							executionLogEntries = [
@@ -676,10 +670,7 @@
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- in-app panel query nav -->
 			<div class="panel-links" role="navigation" aria-label="Open agent panels">
 				{#each uniquePanelLinks as { agentId, resultId } (agentId)}
-					<a
-						href="?{getAgentPanelUrl(agentId, { resultId })}"
-						class="panel-link"
-					>
+					<a href="?{getAgentPanelUrl(agentId, { resultId })}" class="panel-link">
 						Open {getAgentLabel(agentId)} panel
 					</a>
 				{/each}
@@ -708,7 +699,6 @@
 			</div>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/if}
-
 
 		{#if loading}
 			<div class="status-bubble" role="status" aria-live="polite">

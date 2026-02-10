@@ -22,7 +22,11 @@
 			return;
 		}
 		const stored = getAgentResult(resultId);
-		if (stored?.action === 'search_drug_info' && stored.result && typeof stored.result === 'object') {
+		if (
+			stored?.action === 'search_drug_info' &&
+			stored.result &&
+			typeof stored.result === 'object'
+		) {
 			const r = stored.result as DrugInfoResult;
 			if (r.medicineName != null) drugResult = r;
 			else drugResult = null;
@@ -81,17 +85,17 @@
 			userId
 		});
 		/* eslint-disable svelte/no-navigation-without-resolve -- in-app nav to chat tab */
-		goto(
-			`?tab=chat&group=communication&agent=read&resultId=${encodeURIComponent(id)}`,
-			{ replaceState: false }
-		);
+		goto(`?tab=chat&group=communication&agent=read&resultId=${encodeURIComponent(id)}`, {
+			replaceState: false
+		});
 		/* eslint-enable svelte/no-navigation-without-resolve */
 	}
 
 	function dangerLevelClass(level: DrugInfoResult['dangerLevel']): string {
 		if (level === 'critical' || level === 'high')
 			return 'bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-200';
-		if (level === 'medium') return 'bg-amber-200 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200';
+		if (level === 'medium')
+			return 'bg-amber-200 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200';
 		return 'bg-neutral-200 text-neutral-700 dark:bg-neutral-600 dark:text-neutral-200';
 	}
 </script>
@@ -157,9 +161,7 @@
 				</p>
 			{/if}
 			<p class="text-xs">
-				<span
-					class="rounded px-1.5 py-0.5 font-medium {dangerLevelClass(drugResult.dangerLevel)}"
-				>
+				<span class="rounded px-1.5 py-0.5 font-medium {dangerLevelClass(drugResult.dangerLevel)}">
 					{drugResult.dangerLevel}
 				</span>
 			</p>

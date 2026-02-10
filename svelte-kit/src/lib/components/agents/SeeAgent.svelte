@@ -118,10 +118,9 @@
 			userId
 		});
 		/* eslint-disable svelte/no-navigation-without-resolve -- in-app nav to chat tab */
-		goto(
-			`?tab=chat&group=communication&agent=read&resultId=${encodeURIComponent(resultId)}`,
-			{ replaceState: false }
-		);
+		goto(`?tab=chat&group=communication&agent=read&resultId=${encodeURIComponent(resultId)}`, {
+			replaceState: false
+		});
 		/* eslint-enable svelte/no-navigation-without-resolve */
 	}
 
