@@ -157,7 +157,19 @@ const ORCHESTRATOR_AGENTS_PROMPT = `1. Read-To-Me Agent: Read text aloud, OCR im
 6. See-For-Me Agent: Vision and medicine ID. identify_medicine (params: imageBase64, mimeType?) only when user HAS provided a pill/label image. Without image: tell user to capture image in next message.
 7. Hear-For-Me Agent: Real-time audio. Direct user to Hear-For-Me panel.
 
-PROACTIVE USE: When user mentions unknown/unidentified medicine, emergency, or safety concern, USE multiple agents: Remember-For-Me to log (create_medication "Unknown medicine"), Find-It search_drug_info if any details, Write-For-Me to draft doctor letter (compose_email topic "Unknown medicine incident"), Say-It-For-Me for safety message. Then in your response guide user to capture medicine image or seek help if symptoms.`;
+PROACTIVE USE: When user mentions unknown/unidentified medicine, emergency, or safety concern, USE multiple agents: Remember-For-Me to log (create_medication "Unknown medicine"), Find-It search_drug_info if any details, Write-For-Me to draft doctor letter (compose_email topic "Unknown medicine incident"), Say-It-For-Me for safety message. Then in your response guide user to capture medicine image or seek help if symptoms.
+
+REQUIRED when medicine is unknown and user gave NO name/description: In your reply you MUST ask the user to either (1) type the medicine name or a short description (e.g. "white round pill with 123"), or (2) use the See-For-Me panel (Tools → Sense → See) to show the pill or label to the camera. Do not skip this—always suggest both options so we can identify the medicine.`;
+
+/** Guidance for synthesis: tell user how to use UI panels when relevant. */
+const SYNTHESIS_UI_GUIDANCE = `
+Include when relevant:
+- For camera/image: "To capture the medicine: open See-For-Me panel (Tools → Sense → See icon, tap Start Camera)."
+- For drug info: "View detailed drug information in the Find-It panel (use the link below)."
+- For voice: "To hear this spoken: open Say-It-For-Me panel (Tools → Communication → Say)."
+- For doctor letter: "Review the draft in Write-For-Me panel (Tools → Communication → Write)."
+- When medicine is unknown and we have no name/description: Always add: "To identify the medicine, you can type its name or a short description here (e.g. 'white round pill'), or open the See-For-Me panel (Tools → Sense → See) and show the pill or label to the camera."
+Give clear next steps. Be concise.`;
 
 /**
  * Multi-Agent Orchestrator
@@ -388,8 +400,8 @@ What agents should I use? What actions should they take?`,
 
 I executed these actions:
 ${JSON.stringify(actions, null, 2)}
-
-Provide a natural, helpful response to the user explaining what was done.`,
+${SYNTHESIS_UI_GUIDANCE}
+Provide a natural, helpful response.`,
 				model: 'gemini-3-flash-preview',
 				thinkingLevel: selectThinkingLevel('synthesis'),
 				conversationHistory: [
@@ -661,8 +673,8 @@ What agents should I use? What actions should they take?`,
 
 I executed these actions:
 ${JSON.stringify(actions, null, 2)}
-
-Provide a natural, helpful response to the user explaining what was done.`;
+${SYNTHESIS_UI_GUIDANCE}
+Provide a natural, helpful response.`;
 
 			let fullText = '';
 			let finalThoughtSignature: string | undefined;
@@ -774,7 +786,7 @@ Provide a natural, helpful response to the user explaining what was done.`;
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
 ${ORCHESTRATOR_AGENTS_PROMPT}
 
-Your job: Decide which agent(s) to use. If the task requires multiple steps, break into subtasks. For unknown medicine (e.g. "I gulped a medicine"), plan multiple actions: log with Remember-For-Me, search_drug_info if any description, draft letter with Write-For-Me, safety message with Say-It-For-Me.
+Your job: Decide which agent(s) to use. If the task requires multiple steps, break into subtasks. For unknown medicine (e.g. "I gulped a medicine"), plan multiple actions: log with Remember-For-Me, search_drug_info if any description, draft letter with Write-For-Me, safety message with Say-It-For-Me. If the user gave NO medicine name or description, your synthesis must ask them to type it or use See-For-Me (Tools → Sense → See) to show the pill/label.
 Optional: add "parallelGroup" (number) to actions that can run together; same number = same batch.
 Output JSON only (no markdown, no code fences):
 { "agents": ["agent_name"], "reasoning": "why", "actions": [{"agent": "agent_name", "action": "action_name", "params": {...}, "parallelGroup": 1}] }`;
@@ -1036,7 +1048,7 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 
 				if (verificationStatus.passed && !verificationStatus.shouldRetry) {
 					const synthesisResult = await callGemini({
-						prompt: `User asked: "${validatedInput.userInput}"\n\nI executed these actions:\n${JSON.stringify(actions, null, 2)}\n\nProvide a natural, helpful response.`,
+						prompt: `User asked: "${validatedInput.userInput}"\n\nI executed these actions:\n${JSON.stringify(actions, null, 2)}\n${SYNTHESIS_UI_GUIDANCE}\nProvide a natural, helpful response.`,
 						model: 'gemini-3-flash-preview',
 						thinkingLevel: selectThinkingLevel('synthesis'),
 						conversationHistory: [
@@ -1084,7 +1096,7 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 
 				if (hasObviousFailure(actions)) {
 					const synthesisResult = await callGemini({
-						prompt: `User asked: "${validatedInput.userInput}". Some actions failed:\n${JSON.stringify(actions, null, 2)}\n\nProvide a brief response explaining what happened and what the user can do.`,
+						prompt: `User asked: "${validatedInput.userInput}". Some actions failed:\n${JSON.stringify(actions, null, 2)}\n${SYNTHESIS_UI_GUIDANCE}\nProvide a brief response explaining what happened and what the user can do.`,
 						model: 'gemini-3-flash-preview',
 						thinkingLevel: selectThinkingLevel('synthesis'),
 						conversationHistory: history
@@ -1108,7 +1120,7 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 			}
 
 			const synthesisResult = await callGemini({
-				prompt: `User asked: "${validatedInput.userInput}". We ran ${iteration} iteration(s). Actions:\n${JSON.stringify(allActions, null, 2)}\n\nProvide a concise summary for the user.`,
+				prompt: `User asked: "${validatedInput.userInput}". We ran ${iteration} iteration(s). Actions:\n${JSON.stringify(allActions, null, 2)}\n${SYNTHESIS_UI_GUIDANCE}\nProvide a concise summary for the user.`,
 				model: 'gemini-3-flash-preview',
 				thinkingLevel: selectThinkingLevel('synthesis'),
 				conversationHistory: history

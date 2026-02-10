@@ -10,15 +10,98 @@
 	import { saveConversation } from '$lib/utils/conversationStorage';
 	import type { PlannerPlan } from '$lib/agents/orchestrator';
 	import type { StoredConversation } from '$lib/types/conversation';
+	import { storeAgentResult } from '$lib/stores/agentResultsStore';
+	import { getAgentPanelUrl, AGENT_LABEL_TO_ID } from '$lib/utils/navigationHelper';
+	import type { AgentId } from '$lib/stores/tabState';
+	import { getAgentLabel } from '$lib/stores/tabState';
+	import { getAgentResult } from '$lib/stores/agentResultsStore';
+
+	interface Props {
+		returnResultId?: string;
+		onClearReturnResult?: () => void;
+	}
+	let { returnResultId, onClearReturnResult }: Props = $props();
 
 	let userInput = $state('');
 	let response = $state('');
+	/** Last message sent by the user, shown in the conversation area above the response. */
+	let lastUserMessage = $state('');
 	let loading = $state(false);
 	let agentsUsed = $state<string[]>([]);
 	type AgentAction = { agent: string; action: string; result?: unknown };
 	let actions = $state<AgentAction[]>([]);
+	/** Result IDs stored for this turn; used to show "Open X panel" links with pre-loaded data. */
+	let navigationResultIds = $state<Array<{ agentId: AgentId; resultId: string }>>([]);
+	/** One link per agent (latest resultId) for navigation buttons. */
+	const uniquePanelLinks = $derived.by(() => {
+		const seen: Record<string, string> = {};
+		for (const { agentId, resultId } of navigationResultIds) seen[agentId] = resultId;
+		return Object.entries(seen).map(([agentId, resultId]) => ({
+			agentId: agentId as AgentId,
+			resultId
+		}));
+	});
 	/** Valid Supabase auth user id (from anonymous sign-in). Required for reminders/memory. */
 	let userId = $state<string | null>(null);
+
+	/** Stored result when returning from a panel (e.g. Find-It Send to Chat). */
+	const returnResult = $derived.by(() =>
+		returnResultId ? getAgentResult(returnResultId) : null
+	);
+
+	/** Summary of return result for display in chat (drug, scene, search, or generic). */
+	const returnResultSummary = $derived.by(() => {
+		const r = returnResult;
+		if (!r?.result || typeof r.result !== 'object') return null;
+		const res = r.result as Record<string, unknown>;
+		if (r.action === 'search_drug_info' && res.medicineName != null) {
+			return {
+				type: 'drug' as const,
+				title: String(res.medicineName),
+				summary: res.synthesizedSummary != null ? String(res.synthesizedSummary) : '',
+				dangerLevel: res.dangerLevel != null ? String(res.dangerLevel) : undefined
+			};
+		}
+		if (r.action === 'scene_analysis' && typeof res.description === 'string') {
+			const dangers = Array.isArray(res.dangers)
+				? (res.dangers as Array<{ warning?: string; location?: string }>).map(
+						(d) => `${d.warning ?? ''} ${d.location ?? ''}`.trim()
+					)
+				: [];
+			return {
+				type: 'scene' as const,
+				description: String(res.description),
+				dangers,
+				text: Array.isArray(res.text) ? (res.text as string[]) : []
+			};
+		}
+		if (r.action === 'web_search' && typeof res.synthesizedAnswer === 'string') {
+			return {
+				type: 'search' as const,
+				answer: String(res.synthesizedAnswer)
+			};
+		}
+		if (res.message && typeof res.message === 'string') return { type: 'message' as const, text: res.message };
+		if (res.synthesizedAnswer && typeof res.synthesizedAnswer === 'string')
+			return { type: 'message' as const, text: (res.synthesizedAnswer as string).slice(0, 300) };
+		return { type: 'message' as const, text: '' };
+	});
+
+	/** Text to pre-fill chat input when arriving from Send to Chat. */
+	const returnResultPrefillText = $derived.by(() => {
+		const s = returnResultSummary;
+		if (!s) return '';
+		if (s.type === 'drug') return `Tell me more about ${s.title}.`;
+		if (s.type === 'scene') {
+			const parts = [s.description];
+			if (s.dangers.length) parts.push(...s.dangers.map((d) => `Warning: ${d}`));
+			if (s.text.length) parts.push(`Visible text: ${s.text.join(', ')}`);
+			return parts.filter(Boolean).join(' ');
+		}
+		if (s.type === 'search') return s.answer;
+		if (s.type === 'message' && s.text) return s.text;
+		return '';
+	});
 
 	/** Gemini 3 plan (shown above execution log). Cleared on close or new chat. */
 	let currentPlan = $state<PlannerPlan | null>(null);
@@ -35,6 +118,12 @@
 		getOrCreateUserId().then((id) => {
 			userId = id;
 		});
+	});
+
+	$effect(() => {
+		const prefill = returnResultPrefillText;
+		const id = returnResultId;
+		if (id && prefill) userInput = prefill;
 	});
 
 	// Text that will actually be spoken by the browser TTS
@@ -194,9 +283,14 @@
 		isPaused = false;
 	}
 
-	async function handleSubmit(event: SubmitEvent) {
+	function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
+		event.stopPropagation();
 		if (!userInput.trim()) return;
+		void runSubmit();
+	}
+
+	async function runSubmit() {
 
 		const uid = userId ?? (await getOrCreateUserId());
 		if (uid && !userId) userId = uid;
@@ -205,12 +299,15 @@
 				'Reminders and memory require Supabase. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to .env and enable Anonymous sign-in in Supabase Dashboard → Authentication → Providers.';
 			return;
 		}
+		const inputToSend = userInput.trim();
+		lastUserMessage = inputToSend;
 
 		loading = true;
 		isStreaming = false;
 		response = '';
 		agentsUsed = [];
 		actions = [];
+		navigationResultIds = [];
 		playbackText = '';
 		clearPlanAndLog();
 		marathonSuggestion = null;
@@ -221,7 +318,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					userInput: userInput.trim(),
+					userInput: inputToSend,
 					userId: uid,
 					maxIterations,
 					allowMarathonSuggestion: true
@@ -282,6 +379,20 @@
 								{ agent: String(event.agent), action: String(event.action), result: event.result }
 							];
 							agentsUsed = [...new Set([...agentsUsed, String(event.agent)])];
+							if (userId) {
+								const resultId = storeAgentResult({
+									agent: String(event.agent),
+									action: String(event.action),
+									result: event.result,
+									userId
+								});
+								const agentId = AGENT_LABEL_TO_ID[String(event.agent)];
+								if (agentId)
+									navigationResultIds = [
+										...navigationResultIds,
+										{ agentId, resultId }
+									];
+							}
 						} else if (event.type === 'iteration_complete') {
 							executionLogEntries = [
 								...executionLogEntries,
@@ -370,10 +481,10 @@
 			loading = false;
 			isIterating = false;
 			abortController = null;
-			if (response && userInput.trim()) {
+			if (response && inputToSend) {
 				try {
 					saveConversation({
-						userInput: userInput.trim(),
+						userInput: inputToSend,
 						finalResponse: response,
 						plan: currentPlan,
 						executionLog: executionLogEntries,
@@ -411,6 +522,7 @@
 
 	function handleRestoreConversation(data: StoredConversation) {
 		userInput = '';
+		lastUserMessage = data.userInput ?? '';
 		response = data.finalResponse ?? '';
 		const log = Array.isArray(data.executionLog) ? data.executionLog : [];
 		currentPlan = data.plan ?? null;
@@ -468,11 +580,45 @@
 		role="region"
 		aria-label="Chat conversation"
 	>
-		{#if loading}
-			<div class="status-bubble" role="status" aria-live="polite">
-				<span class="status-text">
-					{executionLogEntries.length > 0 ? 'Answering' : 'Thinking'}
-				</span>
+		{#if returnResult && onClearReturnResult}
+			<div class="return-result-banner" role="region" aria-label="Data from panel">
+				<div class="return-result-head">
+					<span>From {returnResult.agent}</span>
+					<button type="button" onclick={onClearReturnResult} class="return-result-dismiss">
+						Dismiss
+					</button>
+				</div>
+				{#if returnResultSummary?.type === 'drug'}
+					<div class="return-result-data drug">
+						<p class="return-result-title">{returnResultSummary.title}</p>
+						{#if returnResultSummary.summary}
+							<p class="return-result-summary">{returnResultSummary.summary}</p>
+						{/if}
+						{#if returnResultSummary.dangerLevel}
+							<span class="return-result-badge">{returnResultSummary.dangerLevel}</span>
+						{/if}
+					</div>
+				{:else if returnResultSummary?.type === 'scene'}
+					<div class="return-result-data scene">
+						<p class="return-result-summary">{returnResultSummary.description}</p>
+						{#if returnResultSummary.dangers.length}
+							<ul class="return-result-dangers">
+								{#each returnResultSummary.dangers as d, i (i)}
+									<li>{d}</li>
+								{/each}
+							</ul>
+						{/if}
+						{#if returnResultSummary.text.length}
+							<p class="return-result-summary">Text: {returnResultSummary.text.join(' | ')}</p>
+						{/if}
+					</div>
+				{:else if returnResultSummary?.type === 'search'}
+					<p class="return-result-summary">{returnResultSummary.answer}</p>
+				{:else if returnResultSummary?.type === 'message' && returnResultSummary.text}
+					<p class="return-result-summary">{returnResultSummary.text}</p>
+				{:else}
+					<p class="return-result-summary">Data loaded. You can ask a follow-up below.</p>
+				{/if}
 			</div>
 		{/if}
 
@@ -513,11 +659,32 @@
 			<ThoughtSignatureViewer items={thoughtFlowItems} />
 		{/if}
 
+		{#if lastUserMessage && (loading || response || isStreaming)}
+			<div class="user-message" role="region" aria-label="Your message">
+				<strong>You:</strong>
+				<p class="user-message-text">{lastUserMessage}</p>
+			</div>
+		{/if}
+
 		{#if response || isStreaming}
 			<div class="response">
 				<strong>DailyAssist:</strong>
 				<MarkdownRenderer content={response} {isStreaming} />
 			</div>
+		{/if}
+		{#if response && uniquePanelLinks.length > 0}
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- in-app panel query nav -->
+			<div class="panel-links" role="navigation" aria-label="Open agent panels">
+				{#each uniquePanelLinks as { agentId, resultId } (agentId)}
+					<a
+						href="?{getAgentPanelUrl(agentId, { resultId })}"
+						class="panel-link"
+					>
+						Open {getAgentLabel(agentId)} panel
+					</a>
+				{/each}
+			</div>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/if}
 
 		{#if webSearchResult && webSearchResult.sources?.length}
@@ -540,6 +707,15 @@
 				</ul>
 			</div>
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		{/if}
+
+
+		{#if loading}
+			<div class="status-bubble" role="status" aria-live="polite">
+				<span class="status-text">
+					{executionLogEntries.length > 0 ? 'Answering' : 'Thinking'}
+				</span>
+			</div>
 		{/if}
 
 		{#if playbackText && canUseTts}
@@ -629,7 +805,16 @@
 	</div>
 
 	<div class="input-area">
-		<form onsubmit={handleSubmit}>
+		<form
+			action="javascript:void(0)"
+			method="get"
+			onsubmit={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				handleSubmit(e);
+				return false;
+			}}
+		>
 			<label for="user-input">What can I help you with?</label>
 			<textarea
 				id="user-input"
@@ -715,6 +900,93 @@
 		min-height: 0;
 		overflow-y: auto;
 		padding: 0.5rem 1rem 1rem;
+	}
+	.return-result-banner {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+		margin-bottom: 0.75rem;
+		background: hsl(210 40% 94%);
+		border: 1px solid hsl(210 35% 88%);
+		border-radius: 8px;
+		font-size: 0.875rem;
+		color: hsl(210 50% 30%);
+	}
+	:global(body.dark) .return-result-banner {
+		background: hsl(210 25% 22%);
+		border-color: hsl(210 20% 32%);
+		color: hsl(210 40% 80%);
+	}
+	.return-result-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+	.return-result-data.drug {
+		padding-top: 0.25rem;
+		border-top: 1px solid hsl(210 30% 88%);
+	}
+	:global(body.dark) .return-result-data.drug {
+		border-top-color: hsl(210 20% 35%);
+	}
+	.return-result-data.scene {
+		padding-top: 0.25rem;
+		border-top: 1px solid hsl(210 30% 88%);
+	}
+	:global(body.dark) .return-result-data.scene {
+		border-top-color: hsl(210 20% 35%);
+	}
+	.return-result-dangers {
+		margin: 0.25rem 0 0;
+		padding-left: 1.25rem;
+		font-size: 0.8125rem;
+		color: hsl(0 60% 40%);
+	}
+	:global(body.dark) .return-result-dangers {
+		color: hsl(0 55% 55%);
+	}
+	.return-result-title {
+		font-weight: 600;
+		margin: 0 0 0.25rem;
+		font-size: 0.9375rem;
+	}
+	.return-result-summary {
+		margin: 0;
+		font-size: 0.8125rem;
+		line-height: 1.4;
+		opacity: 0.95;
+	}
+	.return-result-badge {
+		display: inline-block;
+		margin-top: 0.35rem;
+		padding: 0.2rem 0.5rem;
+		border-radius: 6px;
+		font-size: 0.75rem;
+		font-weight: 500;
+		background: hsl(210 30% 88%);
+		color: hsl(210 50% 25%);
+	}
+	:global(body.dark) .return-result-badge {
+		background: hsl(210 20% 32%);
+		color: hsl(210 40% 78%);
+	}
+	.return-result-dismiss {
+		flex-shrink: 0;
+		padding: 0.25rem 0.5rem;
+		font-size: 0.8125rem;
+		background: transparent;
+		border: 1px solid currentColor;
+		border-radius: 6px;
+		cursor: pointer;
+		color: inherit;
+	}
+	.return-result-dismiss:hover {
+		background: hsl(210 30% 90%);
+	}
+	:global(body.dark) .return-result-dismiss:hover {
+		background: hsl(210 20% 28%);
 	}
 
 	.status-bubble {
@@ -901,6 +1173,38 @@
 		border: 1px solid currentColor;
 	}
 
+	.user-message {
+		margin-top: 1rem;
+		padding: 0.75rem 1rem;
+		background: hsl(210 30% 96%);
+		border-radius: 8px;
+		border-left: 4px solid hsl(210 40% 70%);
+	}
+	:global(body.dark) .user-message {
+		background: hsl(210 20% 20%);
+		border-left-color: hsl(210 40% 55%);
+	}
+	.user-message strong {
+		color: hsl(210 50% 35%);
+		display: block;
+		margin-bottom: 0.35rem;
+		font-size: 0.875rem;
+	}
+	:global(body.dark) .user-message strong {
+		color: hsl(210 50% 68%);
+	}
+	.user-message-text {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.4;
+		color: hsl(210 30% 25%);
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+	:global(body.dark) .user-message-text {
+		color: hsl(210 20% 88%);
+	}
+
 	.response {
 		margin-top: 1.5rem;
 		padding: 1rem;
@@ -921,6 +1225,37 @@
 
 	:global(body.dark) .response strong {
 		color: hsl(210 60% 60%);
+	}
+
+	.panel-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 1rem;
+	}
+	.panel-link {
+		display: inline-block;
+		padding: 0.4rem 0.75rem;
+		font-size: 0.875rem;
+		background: hsl(210 50% 94%);
+		color: hsl(210 60% 35%);
+		border-radius: 8px;
+		text-decoration: none;
+		border: 1px solid hsl(210 35% 88%);
+		font-weight: 500;
+	}
+	.panel-link:hover {
+		background: hsl(210 55% 90%);
+		color: hsl(210 60% 28%);
+	}
+	:global(body.dark) .panel-link {
+		background: hsl(210 25% 24%);
+		color: hsl(210 50% 75%);
+		border-color: hsl(210 20% 32%);
+	}
+	:global(body.dark) .panel-link:hover {
+		background: hsl(210 28% 28%);
+		color: hsl(210 55% 85%);
 	}
 
 	.web-search-sources {

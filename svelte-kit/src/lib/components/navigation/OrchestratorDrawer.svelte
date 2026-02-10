@@ -1,7 +1,18 @@
 <script lang="ts">
 	import AgentPanel from '$lib/components/agents/AgentPanel.svelte';
 
+	interface Props {
+		returnResultId?: string;
+		onClearReturnResult?: () => void;
+	}
+	let { returnResultId, onClearReturnResult }: Props = $props();
+
 	let open = $state(true);
+
+	// Open drawer when user navigates with resultId (e.g. Send to Chat from Find-It) so they see the data
+	$effect(() => {
+		if (returnResultId) open = true;
+	});
 </script>
 
 <div class="drawer-wrapper">
@@ -25,7 +36,7 @@
 		onclick={(e) => e.stopPropagation()}
 	>
 		<div class="drawer-content">
-			<AgentPanel />
+			<AgentPanel {returnResultId} {onClearReturnResult} />
 		</div>
 	</div>
 
@@ -94,7 +105,7 @@
 		top: 0;
 		right: 0;
 		width: 100%;
-		max-width: 420px;
+		max-width: max(420px, 40dvw);
 		height: 100%;
 		background: hsl(210 20% 98%);
 		box-shadow: -4px 0 20px hsla(210 20% 20% / 0.15);

@@ -15,8 +15,9 @@
 	interface Props {
 		agent: AgentId;
 		userId: string;
+		resultId?: string;
 	}
-	let { agent, userId }: Props = $props();
+	let { agent, userId, resultId }: Props = $props();
 </script>
 
 <div
@@ -88,7 +89,7 @@
 				Search, navigate, and locate files. Ask in chat to search—you’ll be directed here for full
 				access.
 			</p>
-			<FindItAgent />
+			<FindItAgent {userId} {resultId} />
 		</section>
 	{:else if agent === 'remember'}
 		<section class="section" aria-labelledby="remember-for-me-heading">
