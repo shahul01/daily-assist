@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { callGemini, parseGeminiJson } from '$lib/utils/gemini';
+import { selectThinkingLevel } from '$lib/utils/thinkingLevels';
 import { getMemorySummary, processConversation } from '$lib/memory';
 import { readAgent } from './readAgent';
 import { rememberAgent } from './rememberAgent';
@@ -142,7 +143,7 @@ Output JSON only (no markdown):
 		const result = await callGemini({
 			prompt,
 			model: 'gemini-3-pro-preview',
-			thinkingLevel: 'medium',
+			thinkingLevel: selectThinkingLevel('marathon_reason'),
 			systemPrompt,
 			conversationHistory: history
 		});

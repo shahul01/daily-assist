@@ -14,6 +14,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const maxIterations = Math.min(Math.max(Number(body.maxIterations) || 10, 1), 20);
 		const signal = request.signal;
+		const allowMarathonSuggestion = body.allowMarathonSuggestion === true;
 
 		const stream = new ReadableStream({
 			async start(controller) {
@@ -27,7 +28,7 @@ export const POST: RequestHandler = async ({ request }) => {
 								? body.conversationHistory
 								: []
 						},
-						{ maxIterations, signal }
+						{ maxIterations, signal, allowMarathonSuggestion }
 					)) {
 						controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
 					}

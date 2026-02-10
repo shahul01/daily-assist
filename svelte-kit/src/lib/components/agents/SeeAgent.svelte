@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { storeAgentResult } from '$lib/stores/agentResultsStore';
 	import {
 		startCamera,
 		isCameraSupported,
@@ -105,6 +107,21 @@
 		}
 		const text = parts.filter(Boolean).join('. ');
 		if (text) speakWithSpeed(text, SPEED);
+	}
+
+	function sendToChat() {
+		if (!analysis || !userId) return;
+		const resultId = storeAgentResult({
+			agent: 'See-For-Me',
+			action: 'scene_analysis',
+			result: analysis,
+			userId
+		});
+		/* eslint-disable svelte/no-navigation-without-resolve -- in-app nav to chat tab */
+		goto(`?tab=chat&group=communication&agent=read&resultId=${encodeURIComponent(resultId)}`, {
+			replaceState: false
+		});
+		/* eslint-enable svelte/no-navigation-without-resolve */
 	}
 
 	onDestroy(stop);
@@ -231,6 +248,14 @@
 								.join(', ')}
 						</p>
 					{/if}
+					<button
+						type="button"
+						onclick={sendToChat}
+						class="mt-2 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+						aria-label="Send to chat"
+					>
+						Send to Chat
+					</button>
 				</div>
 			{/if}
 

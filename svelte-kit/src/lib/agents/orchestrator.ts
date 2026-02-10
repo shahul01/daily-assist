@@ -5,6 +5,7 @@ import { rememberAgent } from './rememberAgent';
 import { writeAgent } from './writeAgent';
 import { findItAgent } from './findItAgent';
 import { sayAgent } from './sayAgent.server';
+import { seeAgent } from './seeAgent';
 import { getMemorySummary, processConversation } from '$lib/memory';
 import {
 	verify,
@@ -12,6 +13,8 @@ import {
 	type VerificationStatus,
 	type ActionResultItem
 } from './verification';
+import { selectThinkingLevel } from '$lib/utils/thinkingLevels';
+import { analyzeTaskComplexity } from './taskComplexity';
 
 /**
  * Orchestrator input
@@ -63,13 +66,25 @@ interface PlannerActionParams {
 	description?: string;
 	location?: string;
 	days?: number;
+	query?: string;
+	imageBase64?: string;
+	mimeType?: string;
+	medicineName?: string;
+}
+
+/** Planner action; optional parallelGroup groups actions that can run in parallel (same number = same batch). */
+export interface PlannerAction {
+	agent: string;
+	action: string;
+	params?: PlannerActionParams;
+	parallelGroup?: number;
 }
 
 /** Planner JSON shape from Gemini (exported for UI and API) */
 export interface PlannerPlan {
 	agents: string[];
 	reasoning?: string;
-	actions: Array<{ agent: string; action: string; params?: PlannerActionParams }>;
+	actions: Array<PlannerAction>;
 }
 
 /** Events yielded by processIterative (SSE/NDJSON) */
@@ -87,7 +102,10 @@ export type OrchestratorIterativeEvent =
 	| { type: 'verification'; iteration: number; status: VerificationStatus }
 	| { type: 'chunk'; text: string }
 	| { type: 'done'; finalResponse: string; totalIterations: number; thoughtSignature?: string }
-	| { type: 'error'; message: string };
+	| { type: 'error'; message: string }
+	| { type: 'marathon_suggestion'; reasoning: string; userGuidance?: string }
+	| { type: 'parallel_start'; actions: Array<{ agent: string; action: string }>; iteration: number }
+	| { type: 'parallel_complete'; results: ActionResultItem[]; iteration: number };
 
 /**
  * Normalize agent names coming from the planner so we can
@@ -103,6 +121,55 @@ function normalizeAgentName(agent: string): string {
 
 	return trimmed;
 }
+
+/** Group actions into batches: same parallelGroup runs in parallel; no group or different = sequential. */
+function groupActionsIntoBatches(actions: PlannerAction[]): PlannerAction[][] {
+	const batches: PlannerAction[][] = [];
+	let currentBatch: PlannerAction[] = [];
+	let currentGroup: number | undefined = undefined;
+	for (const action of actions) {
+		const g = action.parallelGroup;
+		if (g === undefined) {
+			if (currentBatch.length) {
+				batches.push(currentBatch);
+				currentBatch = [];
+				currentGroup = undefined;
+			}
+			batches.push([action]);
+		} else if (g === currentGroup && currentBatch.length) {
+			currentBatch.push(action);
+		} else {
+			if (currentBatch.length) batches.push(currentBatch);
+			currentBatch = [action];
+			currentGroup = g;
+		}
+	}
+	if (currentBatch.length) batches.push(currentBatch);
+	return batches;
+}
+
+/** Shared agent descriptions and proactive-use rules for planner prompts. */
+const ORCHESTRATOR_AGENTS_PROMPT = `1. Read-To-Me Agent: Read text aloud, OCR images.
+2. Write-For-Me Agent: Write emails, correct grammar, adjust tone, compose letters. Use compose_email with topic and tone (e.g. formal letter to doctor).
+3. Find-It Agent: Search web or drug info. Use web_search (params: query or text) or search_drug_info (params: medicineName—can be name OR description like "white round pill", context?). For unknown medicine use search_drug_info with user's description.
+4. Remember-For-Me Agent: Create reminders, track tasks, log medications. Use create_medication to log medicine taken (even unknown—use name "Unknown medicine"); create_reminder, create_appointment, list_medications.
+5. Say-It-For-Me Agent: Text-to-speech. Use speak_message with text (e.g. safety advice, emergency guidance).
+6. See-For-Me Agent: Vision and medicine ID. identify_medicine (params: imageBase64, mimeType?) only when user HAS provided a pill/label image. Without image: tell user to capture image in next message.
+7. Hear-For-Me Agent: Real-time audio. Direct user to Hear-For-Me panel.
+
+PROACTIVE USE: When user mentions unknown/unidentified medicine, emergency, or safety concern, USE multiple agents: Remember-For-Me to log (create_medication "Unknown medicine"), Find-It search_drug_info if any details, Write-For-Me to draft doctor letter (compose_email topic "Unknown medicine incident"), Say-It-For-Me for safety message. Then in your response guide user to capture medicine image or seek help if symptoms.
+
+REQUIRED when medicine is unknown and user gave NO name/description: In your reply you MUST ask the user to either (1) type the medicine name or a short description (e.g. "white round pill with 123"), or (2) use the See-For-Me panel (Tools → Sense → See) to show the pill or label to the camera. Do not skip this—always suggest both options so we can identify the medicine.`;
+
+/** Guidance for synthesis: tell user how to use UI panels when relevant. */
+const SYNTHESIS_UI_GUIDANCE = `
+Include when relevant:
+- For camera/image: "To capture the medicine: open See-For-Me panel (Tools → Sense → See icon, tap Start Camera)."
+- For drug info: "View detailed drug information in the Find-It panel (use the link below)."
+- For voice: "To hear this spoken: open Say-It-For-Me panel (Tools → Communication → Say)."
+- For doctor letter: "Review the draft in Write-For-Me panel (Tools → Communication → Write)."
+- When medicine is unknown and we have no name/description: Always add: "To identify the medicine, you can type its name or a short description here (e.g. 'white round pill'), or open the See-For-Me panel (Tools → Sense → See) and show the pill or label to the camera."
+Give clear next steps. Be concise.`;
 
 /**
  * Multi-Agent Orchestrator
@@ -147,15 +214,9 @@ export class Orchestrator {
 
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
-1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files. Use search_files, locate_document, list_directory.
-4. Remember-For-Me Agent: Create reminders, track tasks
-5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
-6. See-For-Me Agent: Real-time vision—scene description, object detection, danger detection, navigation. Use for: "What do you see?", "Is it safe?", "What's ahead?", "Read that sign". User must use the See-For-Me panel with camera; you can direct them to it.
-7. Hear-For-Me Agent: Real-time audio transcription, sound detection (doorbell, alarm, crying), speaker identification. Use for: "What's that sound?", "Who's speaking?", "Transcribe this conversation". User must use the Hear-For-Me panel with microphone.
+${ORCHESTRATOR_AGENTS_PROMPT}
 
-Your job: Decide which agent(s) to use based on user intent.
+Your job: Decide which agent(s) to use based on user intent. For unknown medicine or safety concerns, use multiple agents proactively (Remember, Find-It, Write, Say).
 Available agents: Read-To-Me, Write-For-Me, Remember-For-Me, Find-It, Say-It-For-Me, See-For-Me (direct to panel), Hear-For-Me (direct to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
@@ -169,12 +230,11 @@ Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no co
 
 		try {
 			const planningResult = await callGemini({
-				// TODO: set thinkingLevel as 'medium' later
 				prompt: `User request: "${validatedInput.userInput}"
 
 What agents should I use? What actions should they take?`,
 				model: 'gemini-3-pro-preview',
-				thinkingLevel: 'low', // Medium thinking for orchestration
+				thinkingLevel: selectThinkingLevel('orchestration_plan'),
 				systemPrompt,
 				conversationHistory: history
 			});
@@ -287,7 +347,12 @@ What agents should I use? What actions should they take?`,
 						break;
 
 					case 'Find-It':
-						if (action.action === 'search_files') {
+						if (action.action === 'web_search') {
+							result = await findItAgent.webSearch({
+								query: (params?.query ?? params?.text ?? validatedInput.userInput) as string,
+								userId: validatedInput.userId
+							});
+						} else if (action.action === 'search_files') {
 							result = await findItAgent.searchFiles({
 								query: params?.text,
 								userId: validatedInput.userId
@@ -335,10 +400,10 @@ What agents should I use? What actions should they take?`,
 
 I executed these actions:
 ${JSON.stringify(actions, null, 2)}
-
-Provide a natural, helpful response to the user explaining what was done.`,
+${SYNTHESIS_UI_GUIDANCE}
+Provide a natural, helpful response.`,
 				model: 'gemini-3-flash-preview',
-				thinkingLevel: 'low', // Fast response synthesis
+				thinkingLevel: selectThinkingLevel('synthesis'),
 				conversationHistory: [
 					...history,
 					{
@@ -425,16 +490,9 @@ Provide a natural, helpful response to the user explaining what was done.`,
 
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context:\n${memoryContext}\n` : ''}
-1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files. Use search_files, locate_document, list_directory.
-4. Remember-For-Me Agent: Create reminders, track tasks
-5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
-6. See-For-Me Agent: Real-time vision—scene description, dangers, navigation. Use for "What do you see?", "Is it safe?". Direct user to the See-For-Me panel.
-7. Hear-For-Me Agent: Real-time audio transcription, sound detection, speaker ID. Use for "What's that sound?", "Transcribe this". Direct user to the Hear-For-Me panel.
+${ORCHESTRATOR_AGENTS_PROMPT}
 
-Your job: Decide which agent(s) to use based on user intent.
-
+Your job: Decide which agent(s) to use based on user intent. For unknown medicine or safety concerns, use multiple agents proactively (Remember, Find-It, Write, Say).
 Available agents: Read-To-Me, Write-For-Me, Remember-For-Me, Find-It, Say-It-For-Me, See-For-Me (direct to panel), Hear-For-Me (direct to panel)
 
 Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no comments):
@@ -452,7 +510,7 @@ Output JSON (IMPORTANT: return ONLY raw JSON, no markdown, no code fences, no co
 
 What agents should I use? What actions should they take?`,
 				model: 'gemini-3-pro-preview',
-				thinkingLevel: 'low',
+				thinkingLevel: selectThinkingLevel('orchestration_plan'),
 				systemPrompt,
 				conversationHistory: history
 			});
@@ -562,7 +620,12 @@ What agents should I use? What actions should they take?`,
 						break;
 
 					case 'Find-It':
-						if (action.action === 'search_files') {
+						if (action.action === 'web_search') {
+							result = await findItAgent.webSearch({
+								query: (params?.query ?? params?.text ?? validatedInput.userInput) as string,
+								userId: validatedInput.userId
+							});
+						} else if (action.action === 'search_files') {
 							result = await findItAgent.searchFiles({
 								query: params?.text,
 								userId: validatedInput.userId
@@ -610,8 +673,8 @@ What agents should I use? What actions should they take?`,
 
 I executed these actions:
 ${JSON.stringify(actions, null, 2)}
-
-Provide a natural, helpful response to the user explaining what was done.`;
+${SYNTHESIS_UI_GUIDANCE}
+Provide a natural, helpful response.`;
 
 			let fullText = '';
 			let finalThoughtSignature: string | undefined;
@@ -619,7 +682,7 @@ Provide a natural, helpful response to the user explaining what was done.`;
 			for await (const chunk of callGeminiStream({
 				prompt: synthesisPrompt,
 				model: 'gemini-3-flash-preview',
-				thinkingLevel: 'low',
+				thinkingLevel: selectThinkingLevel('synthesis'),
 				conversationHistory: [
 					...history,
 					{
@@ -688,9 +751,13 @@ Provide a natural, helpful response to the user explaining what was done.`;
 	 */
 	async *processIterative(
 		input: OrchestratorInput,
-		options: { maxIterations?: number; signal?: AbortSignal } = {}
+		options: {
+			maxIterations?: number;
+			signal?: AbortSignal;
+			allowMarathonSuggestion?: boolean;
+		} = {}
 	): AsyncGenerator<OrchestratorIterativeEvent, void, undefined> {
-		const { maxIterations = 10, signal } = options;
+		const { maxIterations = 10, signal, allowMarathonSuggestion = false } = options;
 		const validatedInput = OrchestratorInputSchema.parse(input);
 		const history = this.conversationHistory.get(validatedInput.userId) || [];
 		let memoryContext = '';
@@ -717,24 +784,29 @@ Provide a natural, helpful response to the user explaining what was done.`;
 
 		const systemPrompt = `You are an orchestrator for DailyAssist, coordinating AI agents.
 ${memoryContext ? `\nUser context (use for personalization):\n${memoryContext}\n` : ''}
-1. Read-To-Me Agent: Read text aloud, OCR images
-2. Write-For-Me Agent: Write emails, correct grammar, adjust tone
-3. Find-It Agent: Search, navigate, locate files. Use search_files, locate_document, list_directory.
-4. Remember-For-Me Agent: Create reminders, track tasks
-5. Say-It-For-Me Agent: Text-to-speech for communication. Use speak_message with text and optional tone.
-6. See-For-Me Agent: Real-time vision—scene description, dangers, navigation. Direct user to See-For-Me panel.
-7. Hear-For-Me Agent: Real-time audio transcription, sound detection. Direct user to Hear-For-Me panel.
+${ORCHESTRATOR_AGENTS_PROMPT}
 
-Your job: Decide which agent(s) to use. If the task requires multiple steps, break into subtasks.
-Available agents: Read-To-Me, Write-For-Me, Remember-For-Me, Find-It, Say-It-For-Me, See-For-Me (direct to panel), Hear-For-Me (direct to panel).
+Your job: Decide which agent(s) to use. If the task requires multiple steps, break into subtasks. For unknown medicine (e.g. "I gulped a medicine"), plan multiple actions: log with Remember-For-Me, search_drug_info if any description, draft letter with Write-For-Me, safety message with Say-It-For-Me. If the user gave NO medicine name or description, your synthesis must ask them to type it or use See-For-Me (Tools → Sense → See) to show the pill/label.
+Optional: add "parallelGroup" (number) to actions that can run together; same number = same batch.
 Output JSON only (no markdown, no code fences):
-{ "agents": ["agent_name"], "reasoning": "why", "actions": [{"agent": "agent_name", "action": "action_name", "params": {...}}] }`;
+{ "agents": ["agent_name"], "reasoning": "why", "actions": [{"agent": "agent_name", "action": "action_name", "params": {...}, "parallelGroup": 1}] }`;
 
 		let iteration = 0;
 		let allActions: ActionResultItem[] = [];
 		let lastPlanningResult: { text: string; thoughtSignature?: string } | null = null;
 
 		try {
+			if (allowMarathonSuggestion) {
+				const complexity = analyzeTaskComplexity(validatedInput.userInput);
+				if (complexity.suggestMarathon && complexity.reasoning) {
+					yield {
+						type: 'marathon_suggestion',
+						reasoning: complexity.reasoning,
+						userGuidance: complexity.userGuidance
+					};
+				}
+			}
+
 			while (iteration < maxIterations) {
 				if (signal?.aborted) {
 					yield { type: 'done', finalResponse: 'Stopped by user.', totalIterations: iteration };
@@ -748,7 +820,7 @@ Output JSON only (no markdown, no code fences):
 					prompt: `User request: "${validatedInput.userInput}"
 ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.slice(-10), null, 2)}\n\nWhat should we do next?` : '\nWhat agents should I use? What actions?'}`,
 					model: 'gemini-3-pro-preview',
-					thinkingLevel: 'low',
+					thinkingLevel: selectThinkingLevel('orchestration_plan'),
 					systemPrompt,
 					conversationHistory: history
 				});
@@ -758,15 +830,14 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 				yield { type: 'plan', plan, iteration };
 
 				const actions: ActionResultItem[] = [];
-				for (const action of plan.actions) {
-					if (signal?.aborted) break;
-					let result: unknown;
-					const agentName = normalizeAgentName(action.agent);
-					const params = action.params;
 
+				async function runOne(act: PlannerAction): Promise<ActionResultItem> {
+					let result: unknown;
+					const agentName = normalizeAgentName(act.agent);
+					const params = act.params;
 					switch (agentName) {
 						case 'Read-To-Me':
-							if (action.action === 'read_text' && params?.text?.trim()) {
+							if (act.action === 'read_text' && params?.text?.trim()) {
 								result = await readAgent.read({
 									text: String(params.text).trim(),
 									speed: (params.speed as 'slow' | 'normal' | 'fast') ?? 'normal',
@@ -775,23 +846,23 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 							}
 							break;
 						case 'Remember-For-Me':
-							if (action.action === 'create_reminder') {
+							if (act.action === 'create_reminder') {
 								result = await rememberAgent.createReminder({
 									action: 'create_reminder',
 									task: params?.task,
 									time: params?.time,
 									userId: validatedInput.userId
 								});
-							} else if (action.action === 'list_reminders') {
+							} else if (act.action === 'list_reminders') {
 								result = await rememberAgent.listReminders(validatedInput.userId);
-							} else if (action.action === 'create_medication') {
+							} else if (act.action === 'create_medication') {
 								result = await rememberAgent.createMedication({
 									userId: validatedInput.userId,
 									name: params?.name ?? '',
 									scheduleText: params?.scheduleText,
 									isCritical: params?.isCritical
 								});
-							} else if (action.action === 'create_appointment') {
+							} else if (act.action === 'create_appointment') {
 								result = await rememberAgent.createAppointment({
 									userId: validatedInput.userId,
 									title: params?.title ?? '',
@@ -799,11 +870,11 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 									description: params?.description,
 									location: params?.location
 								});
-							} else if (action.action === 'list_medications') {
+							} else if (act.action === 'list_medications') {
 								result = await rememberAgent.listMedications(validatedInput.userId);
-							} else if (action.action === 'list_appointments') {
+							} else if (act.action === 'list_appointments') {
 								result = await rememberAgent.listAppointments(validatedInput.userId, params?.days);
-							} else if (action.action === 'analyze_patterns') {
+							} else if (act.action === 'analyze_patterns') {
 								result = await rememberAgent.analyzePatterns(
 									validatedInput.userId,
 									validatedInput.conversationHistory as Array<{
@@ -814,7 +885,7 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 							}
 							break;
 						case 'Write-For-Me':
-							if (action.action === 'compose_email') {
+							if (act.action === 'compose_email') {
 								result = await writeAgent.composeEmail({
 									topic: params?.topic ?? params?.text ?? validatedInput.userInput,
 									tone:
@@ -827,11 +898,11 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 									context: params?.context,
 									userId: validatedInput.userId
 								});
-							} else if (action.action === 'correct_grammar' && params?.text?.trim()) {
+							} else if (act.action === 'correct_grammar' && params?.text?.trim()) {
 								result = {
 									correctedText: await writeAgent.correctGrammar(String(params.text).trim())
 								};
-							} else if (action.action === 'adjust_tone' && params?.text?.trim()) {
+							} else if (act.action === 'adjust_tone' && params?.text?.trim()) {
 								result = {
 									adjustedText: await writeAgent.adjustTone(
 										String(params.text).trim(),
@@ -846,10 +917,22 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 							}
 							break;
 						case 'See-For-Me':
-							result = {
-								message:
-									'Use the See-For-Me panel to start your camera for real-time scene description and danger alerts.'
-							};
+							if (
+								act.action === 'identify_medicine' &&
+								params?.imageBase64 &&
+								typeof params.imageBase64 === 'string'
+							) {
+								result = await seeAgent.identifyMedicine(
+									params.imageBase64,
+									(typeof params.mimeType === 'string' ? params.mimeType : undefined) ??
+										'image/jpeg'
+								);
+							} else {
+								result = {
+									message:
+										'Use the See-For-Me panel to start your camera for real-time scene description and danger alerts. For medicine ID, show the pill or label and use identify_medicine with a captured image.'
+								};
+							}
 							break;
 						case 'Hear-For-Me':
 							result = {
@@ -858,17 +941,30 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 							};
 							break;
 						case 'Find-It':
-							if (action.action === 'search_files') {
+							if (act.action === 'web_search') {
+								result = await findItAgent.webSearch({
+									query: (params?.query ?? params?.text ?? validatedInput.userInput) as string,
+									userId: validatedInput.userId
+								});
+							} else if (act.action === 'search_drug_info') {
+								result = await findItAgent.searchDrugInfo({
+									medicineName: (params?.medicineName ??
+										params?.text ??
+										validatedInput.userInput) as string,
+									context: params?.context as string | undefined,
+									userId: validatedInput.userId
+								});
+							} else if (act.action === 'search_files') {
 								result = await findItAgent.searchFiles({
 									query: params?.text,
 									userId: validatedInput.userId
 								});
-							} else if (action.action === 'locate_document') {
+							} else if (act.action === 'locate_document') {
 								result = await findItAgent.locateDocument({
 									name: params?.name ?? params?.text,
 									userId: validatedInput.userId
 								});
-							} else if (action.action === 'list_directory') {
+							} else if (act.action === 'list_directory') {
 								result = await findItAgent.listDirectory({
 									path: params?.task,
 									userId: validatedInput.userId
@@ -877,7 +973,7 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 							break;
 						case 'Say-It-For-Me':
 							if (
-								action.action === 'speak_message' &&
+								act.action === 'speak_message' &&
 								(params?.text?.trim() ?? validatedInput.userInput.trim())
 							) {
 								result = await sayAgent.speak({
@@ -888,17 +984,54 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 							}
 							break;
 						default:
-							result = { error: `Agent ${action.agent} not implemented yet` };
+							result = { error: `Agent ${act.agent} not implemented yet` };
 					}
+					return { agent: agentName, action: act.action, result };
+				}
 
-					actions.push({ agent: agentName, action: action.action, result });
-					yield {
-						type: 'action_result',
-						agent: agentName,
-						action: action.action,
-						result,
-						iteration
-					};
+				const batches = groupActionsIntoBatches(plan.actions);
+				for (const batch of batches) {
+					if (signal?.aborted) break;
+					if (batch.length === 1) {
+						const item = await runOne(batch[0]);
+						actions.push(item);
+						yield {
+							type: 'action_result',
+							agent: item.agent,
+							action: item.action,
+							result: item.result,
+							iteration
+						};
+					} else {
+						yield {
+							type: 'parallel_start',
+							actions: batch.map((a) => ({ agent: normalizeAgentName(a.agent), action: a.action })),
+							iteration
+						};
+						const settled = await Promise.allSettled(batch.map(runOne));
+						const results: ActionResultItem[] = settled.map((s, i) =>
+							s.status === 'fulfilled'
+								? s.value
+								: {
+										agent: normalizeAgentName(batch[i].agent),
+										action: batch[i].action,
+										result: {
+											error: (s as PromiseRejectedResult).reason?.message ?? 'Action failed'
+										} as unknown
+									}
+						);
+						for (const r of results) {
+							yield {
+								type: 'action_result',
+								agent: r.agent,
+								action: r.action,
+								result: r.result,
+								iteration
+							};
+						}
+						yield { type: 'parallel_complete', results, iteration };
+						actions.push(...results);
+					}
 				}
 				allActions = allActions.concat(actions);
 
@@ -915,9 +1048,9 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 
 				if (verificationStatus.passed && !verificationStatus.shouldRetry) {
 					const synthesisResult = await callGemini({
-						prompt: `User asked: "${validatedInput.userInput}"\n\nI executed these actions:\n${JSON.stringify(actions, null, 2)}\n\nProvide a natural, helpful response.`,
+						prompt: `User asked: "${validatedInput.userInput}"\n\nI executed these actions:\n${JSON.stringify(actions, null, 2)}\n${SYNTHESIS_UI_GUIDANCE}\nProvide a natural, helpful response.`,
 						model: 'gemini-3-flash-preview',
-						thinkingLevel: 'low',
+						thinkingLevel: selectThinkingLevel('synthesis'),
 						conversationHistory: [
 							...history,
 							{
@@ -963,9 +1096,9 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 
 				if (hasObviousFailure(actions)) {
 					const synthesisResult = await callGemini({
-						prompt: `User asked: "${validatedInput.userInput}". Some actions failed:\n${JSON.stringify(actions, null, 2)}\n\nProvide a brief response explaining what happened and what the user can do.`,
+						prompt: `User asked: "${validatedInput.userInput}". Some actions failed:\n${JSON.stringify(actions, null, 2)}\n${SYNTHESIS_UI_GUIDANCE}\nProvide a brief response explaining what happened and what the user can do.`,
 						model: 'gemini-3-flash-preview',
-						thinkingLevel: 'low',
+						thinkingLevel: selectThinkingLevel('synthesis'),
 						conversationHistory: history
 					});
 					yield { type: 'done', finalResponse: synthesisResult.text, totalIterations: iteration };
@@ -987,9 +1120,9 @@ ${iteration > 1 ? `\nPrevious iteration results:\n${JSON.stringify(allActions.sl
 			}
 
 			const synthesisResult = await callGemini({
-				prompt: `User asked: "${validatedInput.userInput}". We ran ${iteration} iteration(s). Actions:\n${JSON.stringify(allActions, null, 2)}\n\nProvide a concise summary for the user.`,
+				prompt: `User asked: "${validatedInput.userInput}". We ran ${iteration} iteration(s). Actions:\n${JSON.stringify(allActions, null, 2)}\n${SYNTHESIS_UI_GUIDANCE}\nProvide a concise summary for the user.`,
 				model: 'gemini-3-flash-preview',
-				thinkingLevel: 'low',
+				thinkingLevel: selectThinkingLevel('synthesis'),
 				conversationHistory: history
 			});
 			yield {

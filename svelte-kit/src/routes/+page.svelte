@@ -149,7 +149,11 @@
 		{:else if tabState.primary === 'usage'}
 			<UsagePanel {userId} />
 		{:else if showAgentContent && currentAgent}
-			<AgentTabContent agent={currentAgent} {userId} />
+			<AgentTabContent
+				agent={currentAgent}
+				{userId}
+				resultId={$page.url.searchParams.get('resultId') ?? undefined}
+			/>
 		{:else if tabState.primary === 'chat' && !tabState.group}
 			<TabPlaceholder
 				id="panel-chat"
@@ -161,7 +165,16 @@
 	</div>
 </main>
 
-<OrchestratorDrawer />
+<OrchestratorDrawer
+	returnResultId={$page.url.searchParams.get('resultId') ?? undefined}
+	onClearReturnResult={() => {
+		const params = tabStateToSearchParams(tabState);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- clear return result from URL
+		goto(params.toString() ? `?${params.toString()}` : window.location.pathname, {
+			replaceState: true
+		});
+	}}
+/>
 <SettingsModal open={settingsOpen} onclose={() => (settingsOpen = false)} />
 
 <style>

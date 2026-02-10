@@ -385,10 +385,12 @@ export async function generateImageWithGemini(
 		contents: [{ role: 'user', parts }],
 		generationConfig: {
 			responseModalities: ['IMAGE'],
-			responseMimeType: 'image/png',
-			aspectRatio,
-			// imageSize only for Standard/Ultra; 1K/2K supported
-			...(resolution !== '4K' && { imageSize: resolution })
+			// Do not set responseMimeType for image gen; API only allows text/plain, application/json, etc.
+			imageConfig: {
+				aspectRatio,
+				// imageSize: 1K, 2K, 4K (use uppercase K per API)
+				...(resolution !== '4K' && { imageSize: resolution })
+			}
 		}
 	};
 	if (negativePrompt) {
